@@ -1,4 +1,4 @@
-<!doctype html>
+html_content = r"""<!doctype html>
 <html lang="he" dir="rtl" data-theme="light">
 <head>
 <meta charset="utf-8">
@@ -383,3 +383,913 @@ function pushLoc(pos) {
     lastPush = Date.now();
     pushBusy = false;
     draw();
+  });
+}
+
+function startLocWatch(silent) {
+  if (!navigator.geolocation) {
+    S.geo = 'המכשיר לא תומך בשיתוף מיקום';
+    draw();
+    return;
+  }
+  if (watchId) return;
+  const onErr = e => {
+    S.geo = e && e.code === 1 ? 'ההרשאה למיקום נדחתה בהגדרות המכשיר' : 'לא הצלחנו לאתר מיקום כרגע';
+    if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+    const offData = { ...(S.locs[S.uid] || {}), on: false };
+    S.locs[S.uid] = offData;
+    syncRoom({ [`locs/${S.uid}`]: offData });
+    draw();
+  };
+  navigator.geolocation.getCurrentPosition(p => {
+    pushLoc(p);
+    if (!silent) toast('המיקום שלך משותף עם המשפחה');
+  }, onErr, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
+  watchId = navigator.geolocation.watchPosition(pushLoc, onErr, { enableHighAccuracy: false, maximumAge: 15000, timeout: 15000 });
+}
+
+function stopLocWatch() {
+  if (watchId) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+  S.geo = '';
+  const offData = { ...(S.locs[S.uid] || {}), on: false };
+  S.locs[S.uid] = offData;
+  syncRoom({ [`locs/${S.uid}`]: offData });
+  draw();
+  toast('שיתוף המיקום הופסק');
+}
+
+const navItems = [
+  ['home', 'היום', 'home'],
+  ['route', 'מסלול', 'route'],
+  ['map', 'מפה', 'pin'],
+  ['tickets', 'כרטיסים', 'ticket'],
+  ['more', 'עוד', 'more']
+];
+
+function render() {
+  const me = S.members[S.uid];
+  const v = $('#view'), n = $('#nav');
+  if (!S.loaded) {
+    n.style.display = 'none';
+    v.innerHTML = `<div class="stack" style="justify-content:center;align-items:center;min-height:100%;text-align:center">
+      <div class="h2">מתחבר לטיול המשפחתי...</div>
+      <div class="small">טוען נתונים חיים מהענן</div>
+    </div>`;
+    return;
+  }
+  if (!me) {
+    n.style.display = 'none';
+    v.innerHTML = renderOnboarding();
+    return;
+  }
+  n.style.display = 'flex';
+  n.innerHTML = navItems.map(([id, label, icon]) => `<button type="button" class="${S.tab === id ? 'on' : ''}" data-tab="${id}">${svg(icon, 22)}<span>${label}</span></button>`).join('');
+
+  let html = '';
+  if (S.tab === 'home') html = renderHome();
+  else if (S.tab === 'route') html = S.day ? renderDay(S.day) : renderRoute();
+  else if (S.tab === 'map') html = renderMap();
+  else if (S.tab === 'tickets') html = renderTickets();
+  else if (S.tab === 'trivia') html = renderTrivia();
+  else html = renderMore();
+
+  v.innerHTML = renderSosBanner() + html;
+}
+
+function renderOnboarding() {
+  const o = S.ob;
+  const dots = [0, 1, 2].map(i => `<span style="width:${i === o.step ? 24 : 8}px;height:8px;border-radius:4px;background:${i === o.step ? 'var(--acc)' : 'var(--field)'}"></span>`).join('');
+  if (o.step === 0) {
+    return `<div class="stack" style="justify-content:space-between;min-height:100%">
+      <div class="stack" style="margin-top:32px">
+        <div class="row">${dots}</div>
+        <h1 class="h1">ברוכים הבאים לטיול המשפחתי</h1>
+        <p class="sub">מקום אחד למסלול, מיקום חי, כרטיסים וטריוויה לנסיעות — מסונכרן בזמן אמת לכל המשפחה.</p>
+      </div>
+      <div class="stack-s">
+        <label class="fld">מה השם שלך?
+          <input id="ob-name" value="${esc(o.name)}" placeholder="לדוגמה: אריק, סיגל, ליאן..." autocomplete="given-name">
+        </label>
+        <div class="fld">בחר צבע לזיהוי
+          <div class="row" style="margin-top:4px">${COLORS.map((c, i) => `<button type="button" data-ob-col="${i}" aria-label="${COLOR_NAMES[i]}" style="width:48px;height:48px;border-radius:50%;background:${c};border:${o.color === i ? '3px solid var(--acc)' : '1.5px solid var(--field)'}"></button>`).join('')}</div>
+        </div>
+        <button type="button" class="btn" id="ob-next0" style="margin-top:12px" ${o.name.trim() ? '' : 'disabled'}>המשך</button>
+      </div>
+    </div>`;
+  }
+  if (o.step === 1) {
+    return `<div class="stack" style="justify-content:space-between;min-height:100%">
+      <div class="stack" style="margin-top:32px">
+        <div class="row">${dots}</div>
+        <h1 class="h1">שיתוף מיקום עם המשפחה</h1>
+        <p class="sub">כך כולם רואים איפה כל אחד נמצא בזמן הטיול. אפשר להפעיל או לכבות בכל רגע.</p>
+        <div class="card stack-s">
+          <div class="h2">פרטיות ושליטה מלאה</div>
+          <div class="small">המיקום משותף רק עם חברי הטיול וניתן לעצירה בלחיצה אחת.</div>
+        </div>
+      </div>
+      <div class="stack-s">
+        <button type="button" class="btn" id="ob-loc-yes">הפעל שיתוף מיקום</button>
+        <button type="button" class="btn2" id="ob-loc-no">לא עכשיו</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="stack" style="justify-content:space-between;min-height:100%">
+    <div class="stack" style="margin-top:32px">
+      <div class="row">${dots}</div>
+      <h1 class="h1">הכול מוכן, ${esc(o.name)}!</h1>
+      <p class="sub">${S.trip ? `הטיול ״${esc(S.trip.title)}״ כבר מחכה לך בפנים.` : 'אפשר ליצור את הטיול המשפחתי או להוסיף ימים ותחנות.'}</p>
+    </div>
+    <button type="button" class="btn" id="ob-done">כניסה לאפליקציה</button>
+  </div>`;
+}
+
+function renderSosBanner() {
+  const entries = Object.entries(S.sos || {}).filter(([, v]) => v && v.active);
+  if (!entries.length) return '';
+  return entries.map(([k, v]) => {
+    const m = S.members[k] || { name: v.name || 'בן משפחה' };
+    const l = S.locs[k];
+    const has = l && typeof l.lat === 'number' && typeof l.lng === 'number';
+    return `<div class="sos-banner" role="alert">
+      <div class="between">
+        <div>
+          <div style="font-weight:700;font-size:18px">התראת SOS מ-${esc(m.name)}</div>
+          <div style="font-size:14px;opacity:.92">${has ? ago(l.at) : 'אין מיקום חי זמין כרגע'}</div>
+        </div>
+        <button type="button" class="mini o" style="background:#FFFFFF;color:var(--bad);border:0" data-sos-clear="${esc(k)}">סגור התראה</button>
+      </div>
+      ${has ? `<div class="row">
+        <a class="mini o" style="flex:1;background:#FFFFFF;color:#111111;border:0" href="https://waze.com/ul?ll=${l.lat},${l.lng}&navigate=yes" target="_blank" rel="noopener noreferrer">Waze למיקום</a>
+        <a class="mini o" style="flex:1;background:#FFFFFF;color:#111111;border:0" href="https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}" target="_blank" rel="noopener noreferrer">Google Maps</a>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderHome() {
+  const t = S.trip;
+  const nx = nextStop();
+  const ms = Object.entries(S.members);
+  const sharing = ms.filter(([id]) => S.locs[id]?.on);
+
+  if (!t) {
+    return `<div class="stack">
+      <div class="between">
+        <div>
+          <div class="small">שלום, ${esc(S.members[S.uid]?.name)}</div>
+          <h1 class="h1">הטיול המשפחתי</h1>
+        </div>
+        ${av(S.members[S.uid])}
+      </div>
+      <div class="card stack">
+        <div class="h2">עדיין לא הוגדר טיול</div>
+        <div class="sub">הגדר את שם הטיול, היעד והתאריכים כדי להתחיל לבנות את המסלול.</div>
+        <button type="button" class="btn" id="open-trip-sheet">${svg('plus')} יצירת טיול חדש</button>
+      </div>
+    </div>`;
+  }
+
+  const cd = countdown(t);
+  return `<div class="stack">
+    <div class="between">
+      <div>
+        <div class="small">${esc(t.dest || 'טיול משפחתי')} ${cd ? '• ' + esc(cd) : ''}</div>
+        <h1 class="h1">${esc(t.title)}</h1>
+      </div>
+      <button type="button" class="lnk" id="open-trip-sheet">ערוך</button>
+    </div>
+
+    ${nx ? `<section class="hero" aria-label="התחנה הבאה">
+      <div class="between">
+        <span style="font-size:14px;color:var(--mut)">התחנה הבאה • ${esc(nx.day.title || 'יום ' + nx.day.num)}</span>
+        <span style="font-size:14px;color:var(--mut)">${esc(KIND_LABEL[nx.stop.kind] || '')}</span>
+      </div>
+      <div>
+        ${nx.stop.time ? `<div class="big">${esc(nx.stop.time)}</div>` : ''}
+        <div style="font-size:24px;font-weight:700;margin-top:6px">${esc(nx.stop.title)}</div>
+        ${nx.stop.place ? `<div style="font-size:15px;color:var(--mut);margin-top:4px">${esc(nx.stop.place)}</div>` : ''}
+      </div>
+      <div class="row">
+        <a class="hb hb1" href="${navUrl(nx.stop, 'waze')}" target="_blank" rel="noopener noreferrer">${svg('nav', 18)} נווט ב-Waze</a>
+        <a class="hb hb2" href="${navUrl(nx.stop, 'google')}" target="_blank" rel="noopener noreferrer">Google Maps</a>
+      </div>
+    </section>` : `<div class="card stack-s">
+      <div class="h2">אין תחנות מתוכננות עדיין</div>
+      <div class="small">הוסף ימים ותחנות בלשונית המסלול.</div>
+      <button type="button" class="btn2" data-tab="route">מעבר למסלול</button>
+    </div>`}
+
+    <div class="card stack-s">
+      <div class="between">
+        <div class="h2">המשפחה בטיול</div>
+        <button type="button" class="lnk" data-tab="map">למפה החיה</button>
+      </div>
+      <div class="between">
+        <div class="row" style="padding-inline-start:8px">${ms.map(([, m]) => av(m, true)).join('')}</div>
+        <div class="small">${sharing.length} מתוך ${ms.length} משתפים מיקום</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <button type="button" class="btn2" style="flex:1" data-tab="tickets">${svg('ticket', 18)} כרטיסים (${S.tickets.length})</button>
+      <button type="button" class="btn2" style="flex:1" data-tab="trivia">טריוויה משפחתית</button>
+    </div>
+  </div>`;
+}
+
+function renderRoute() {
+  const ds = sortedDays();
+  return `<div class="stack">
+    <div class="between">
+      <div>
+        <h1 class="h1">מסלול הטיול</h1>
+        <div class="small">${ds.length} ימים • ${S.stops.length} תחנות</div>
+      </div>
+      <button type="button" class="btn" id="add-day-btn" style="min-height:44px;padding:0 14px">${svg('plus', 18)} יום</button>
+    </div>
+    ${!ds.length ? `<div class="card stack-s">
+      <div class="h2">המסלול עדיין ריק</div>
+      <div class="small">לחץ על ״+ יום״ כדי להוסיף את היום הראשון בטיול.</div>
+    </div>` : `<div class="stack-s">
+      ${ds.map(d => {
+        const cnt = S.stops.filter(s => s.dayId === d.id).length;
+        return `<button type="button" class="tab-link" data-open-day="${esc(d.id)}">
+          <div>
+            <div style="font-weight:700;font-size:17px">${esc(d.title || 'יום ' + d.num)}</div>
+            <div class="small">${fmtDate(d.date)} ${d.note ? '• ' + esc(d.note) : ''}</div>
+          </div>
+          <div class="row">
+            <span class="small">${cnt} תחנות</span>
+            ${svg('chev', 18)}
+          </div>
+        </button>`;
+      }).join('')}
+    </div>`}
+  </div>`;
+}
+
+function renderDay(dayId) {
+  const d = S.days.find(x => x.id === dayId);
+  if (!d) { S.day = null; return renderRoute(); }
+  const allStops = sortedStops(dayId);
+  const stops = S.filter === 'all' ? allStops : allStops.filter(s => s.kind === S.filter);
+
+  return `<div class="stack">
+    <div class="topbar">
+      <button type="button" class="lnk" id="back-route">${svg('back', 18)} מסלול</button>
+      <div style="font-weight:700">${esc(d.title || 'יום ' + d.num)}</div>
+      <button type="button" class="lnk" data-edit-day="${esc(d.id)}">ערוך יום</button>
+    </div>
+
+    <div>
+      <h1 class="h1">${esc(d.title || 'יום ' + d.num)}</h1>
+      <div class="sub">${fmtDate(d.date)}</div>
+      ${d.note ? `<div class="note" style="margin-top:10px">${esc(d.note)}</div>` : ''}
+    </div>
+
+    <div class="chips" role="tablist">
+      <button type="button" class="chip ${S.filter === 'all' ? 'on' : ''}" data-filt="all">הכול (${allStops.length})</button>
+      ${KINDS.map(([k, lbl]) => {
+        const c = allStops.filter(s => s.kind === k).length;
+        return `<button type="button" class="chip ${S.filter === k ? 'on' : ''}" data-filt="${k}">${lbl} (${c})</button>`;
+      }).join('')}
+    </div>
+
+    <div class="stack-s">
+      ${!stops.length ? `<div class="card small">אין תחנות להצגה בסינון זה.</div>` : stops.map(s => `<article class="card stack-s">
+        <div class="between">
+          <div class="row">
+            ${s.time ? `<span class="time">${esc(s.time)}</span>` : ''}
+            <span class="small">${esc(KIND_LABEL[s.kind] || '')}</span>
+          </div>
+          <button type="button" class="lnk" data-edit-stop="${esc(s.id)}">ערוך</button>
+        </div>
+        <div>
+          <div class="h2">${esc(s.title)}</div>
+          ${s.place ? `<div class="small" style="margin-top:2px">${esc(s.place)}</div>` : ''}
+          ${s.note ? `<div style="font-size:15px;margin-top:6px">${esc(s.note)}</div>` : ''}
+        </div>
+        ${(s.place || coords(s)) ? `<div class="row" style="margin-top:4px">
+          <a class="mini p" style="flex:1" href="${navUrl(s, 'waze')}" target="_blank" rel="noopener noreferrer">Waze</a>
+          <a class="mini o" style="flex:1" href="${navUrl(s, 'google')}" target="_blank" rel="noopener noreferrer">Google Maps</a>
+          <a class="mini o" href="${placeUrl(s)}" target="_blank" rel="noopener noreferrer">מפה</a>
+        </div>` : ''}
+      </article>`).join('')}
+    </div>
+
+    <button type="button" class="btn" id="add-stop-btn">${svg('plus', 18)} הוסף תחנה ליום</button>
+  </div>`;
+}
+
+function renderMap() {
+  const myOn = Boolean(S.locs[S.uid]?.on);
+  const ms = Object.entries(S.members);
+
+  return `<div class="stack">
+    <h1 class="h1">מפה ומיקום חי</h1>
+
+    <div class="seg" role="tablist">
+      <button type="button" class="${S.mapMode === 'near' ? 'on' : ''}" data-mm="near">חיפוש בסביבה</button>
+      <button type="button" class="${S.mapMode === 'fam' ? 'on' : ''}" data-mm="fam">איפה המשפחה (${ms.length})</button>
+    </div>
+
+    ${S.mapMode === 'near' ? `<div class="stack">
+      <div class="chips">
+        ${CATS.map(([k, lbl]) => `<button type="button" class="chip ${S.cat === k ? 'on' : ''}" data-cat="${k}">${lbl}</button>`).join('')}
+      </div>
+      <div class="card stack">
+        <div class="h2">מצא ${esc(CATS.find(c => c[0] === S.cat)?.[1] || '')} בקרבת מקום</div>
+        <div class="small">${myOn ? 'החיפוש ממוקד סביב המיקום הנוכחי שלך.' : 'הפעל שיתוף מיקום למעלה או למטה כדי למקד את החיפוש בדיוק סביבך.'}</div>
+        <div class="stack-s">
+          <a class="btn" href="${nearUrl(S.cat, 'google')}" target="_blank" rel="noopener noreferrer">פתח ב-Google Maps</a>
+          <a class="btn2" href="${nearUrl(S.cat, 'waze')}" target="_blank" rel="noopener noreferrer">חפש ב-Waze</a>
+          <a class="btn2" href="${nearUrl(S.cat, 'apple')}" target="_blank" rel="noopener noreferrer">פתח במפות Apple</a>
+        </div>
+      </div>
+    </div>` : `<div class="stack">
+      <div class="card between">
+        <div>
+          <div class="h2">שיתוף המיקום שלי</div>
+          <div class="small">${myOn ? ago(S.locs[S.uid]?.at) : 'כבוי כרגע'}</div>
+        </div>
+        <button type="button" class="sw ${myOn ? 'on' : ''}" id="toggle-loc" role="switch" aria-checked="${myOn}" aria-label="שיתוף מיקום"><i></i></button>
+      </div>
+      ${S.geo ? `<div class="warn">${esc(S.geo)}</div>` : ''}
+
+      <div class="stack-s">
+        ${ms.map(([id, m]) => {
+          const l = S.locs[id];
+          const has = l && l.on && typeof l.lat === 'number' && typeof l.lng === 'number';
+          return `<div class="card stack-s">
+            <div class="between">
+              <div class="row">
+                ${av(m)}
+                <div>
+                  <div class="h2">${esc(m.name)} ${id === S.uid ? '(אני)' : ''}</div>
+                  <div class="small">${has ? ago(l.at) : 'לא משתף מיקום כרגע'}</div>
+                </div>
+              </div>
+            </div>
+            ${has ? `<div class="row">
+              <a class="mini p" style="flex:1" href="https://waze.com/ul?ll=${l.lat},${l.lng}&navigate=yes" target="_blank" rel="noopener noreferrer">נווט ב-Waze</a>
+              <a class="mini o" style="flex:1" href="https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lng}" target="_blank" rel="noopener noreferrer">Google Maps</a>
+            </div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`}
+  </div>`;
+}
+
+function renderTickets() {
+  return `<div class="stack">
+    <div class="between">
+      <div>
+        <h1 class="h1">כרטיסים והזמנות</h1>
+        <div class="small">${S.tickets.length} פריטים שמורים</div>
+      </div>
+      <button type="button" class="btn" id="add-ticket-btn" style="min-height:44px;padding:0 14px">${svg('plus', 18)} הוסף</button>
+    </div>
+
+    ${!S.tickets.length ? `<div class="card stack-s">
+      <div class="h2">אין כרטיסים שמורים</div>
+      <div class="small">שמור כאן מספרי טיסות, אישורי מלון, השכרת רכב וכרטיסים לאטרקציות.</div>
+    </div>` : `<div class="stack-s">
+      ${S.tickets.map(t => `<article class="card stack-s">
+        <div class="between">
+          <span class="small">${esc(KIND_LABEL[t.kind] || 'כרטיס')} ${t.when ? '• ' + esc(t.when) : ''}</span>
+          <button type="button" class="lnk" data-edit-ticket="${esc(t.id)}">ערוך</button>
+        </div>
+        <div class="h2">${esc(t.title)}</div>
+        ${t.code ? `<div class="between" style="background:var(--bg);padding:10px 14px;border-radius:12px">
+          <span style="font-family:monospace;font-weight:700;font-size:17px">${esc(t.code)}</span>
+          <button type="button" class="mini o" data-copy="${esc(t.code)}">העתק</button>
+        </div>` : ''}
+        ${t.note ? `<div class="small">${esc(t.note)}</div>` : ''}
+        ${t.link ? `<a class="btn2" href="${esc(t.link)}" target="_blank" rel="noopener noreferrer">פתח קישור / אישור</a>` : ''}
+      </article>`).join('')}
+    </div>`}
+  </div>`;
+}
+
+function stopTriviaTimers() {
+  if (tvInterval) { clearInterval(tvInterval); tvInterval = null; }
+  if (tvAdvanceTimeout) { clearTimeout(tvAdvanceTimeout); tvAdvanceTimeout = null; }
+}
+
+function ensureProg() {
+  if (!S.prog) S.prog = { round: 0, q: 0, ans: null, ok: 0 };
+  return S.prog;
+}
+
+function startTriviaQuestion() {
+  stopTriviaTimers();
+  S.tv = 'play';
+  S.tvSec = QUESTION_SEC;
+  draw();
+  tvInterval = setInterval(() => {
+    const p = ensureProg();
+    if (p.ans !== null) { stopTriviaTimers(); return; }
+    S.tvSec--;
+    if (S.tvSec <= 0) {
+      S.tvSec = 0;
+      answerTrivia(-1);
+    } else {
+      draw();
+    }
+  }, 1000);
+}
+
+function answerTrivia(chosenOrigIdx) {
+  const p = ensureProg();
+  if (p.ans !== null) return;
+  stopTriviaTimers();
+  const qi = qIndex(p, S.trip?.id || 'family');
+  const q = TQ[qi];
+  const isOk = chosenOrigIdx === q.a;
+  p.ans = chosenOrigIdx;
+  const prev = S.scores[S.uid] || { pts: 0, ok: 0, tot: 0 };
+  const nextScore = isOk
+    ? { pts: (prev.pts || 0) + 10, ok: (prev.ok || 0) + 1, tot: (prev.tot || 0) + 1 }
+    : { pts: prev.pts || 0, ok: prev.ok || 0, tot: (prev.tot || 0) + 1 };
+  if (isOk) p.ok = (p.ok || 0) + 1;
+  S.scores[S.uid] = nextScore;
+  syncRoom({ [`scores/${S.uid}`]: nextScore, [`prog/${S.uid}`]: p });
+  draw();
+  tvAdvanceTimeout = setTimeout(() => {
+    if (p.q + 1 >= ROUND) {
+      S.tv = 'done';
+      draw();
+    } else {
+      p.q++;
+      p.ans = null;
+      syncRoom({ [`prog/${S.uid}`]: p });
+      startTriviaQuestion();
+    }
+  }, 1500);
+}
+
+function renderTrivia() {
+  const p = ensureProg();
+  const board = Object.entries(S.members)
+    .map(([id, m]) => ({ id, m, sc: S.scores[id] || { pts: 0, ok: 0, tot: 0 } }))
+    .sort((a, b) => b.sc.pts - a.sc.pts);
+
+  if (S.tv === 'play') {
+    const qi = qIndex(p, S.trip?.id || 'family');
+    const q = TQ[qi];
+    const order = optOrder(qi);
+    const pct = Math.max(0, Math.min(100, (S.tvSec / QUESTION_SEC) * 100));
+
+    return `<div class="stack">
+      <div class="topbar">
+        <button type="button" class="lnk" id="tv-pause">${svg('pause', 18)} השהה</button>
+        <div style="font-weight:700">שאלה ${p.q + 1} מתוך ${ROUND}</div>
+        <div class="time">${S.tvSec} שנ׳</div>
+      </div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="card stack">
+        <div class="small">${esc(q.cat)}</div>
+        <div class="h2" style="font-size:22px;line-height:1.35">${esc(q.q)}</div>
+        <div class="stack-s">
+          ${order.map(origIdx => {
+            let cls = 'opt';
+            if (p.ans !== null) {
+              if (origIdx === q.a) cls += ' ok';
+              else if (origIdx === p.ans) cls += ' no';
+            }
+            return `<button type="button" class="${cls}" data-ans="${origIdx}" ${p.ans !== null ? 'disabled' : ''}>
+              <span>${esc(q.o[origIdx])}</span>
+            </button>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  if (S.tv === 'done') {
+    return `<div class="stack">
+      <div class="topbar">
+        <button type="button" class="lnk" id="tv-back">${svg('back', 18)} חזרה</button>
+        <div style="font-weight:700">סיום סיבוב</div>
+        <span></span>
+      </div>
+      <div class="card stack" style="text-align:center">
+        <h1 class="h1">כל הכבוד!</h1>
+        <div class="sub">ענית נכון על ${p.ok} מתוך ${ROUND} שאלות בסיבוב זה.</div>
+        <button type="button" class="btn" id="tv-next-round">סיבוב נוסף</button>
+      </div>
+      <div class="card stack-s">
+        <div class="h2">טבלת המובילים</div>
+        ${board.map((b, idx) => `<div class="between">
+          <div class="row">${av(b.m)} <span>${idx + 1}. ${esc(b.m.name)}</span></div>
+          <strong>${b.sc.pts} נק׳</strong>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  return `<div class="stack">
+    <div class="topbar">
+      <button type="button" class="lnk" data-tab="more">${svg('back', 18)} עוד</button>
+      <div style="font-weight:700">טריוויה</div>
+      <span></span>
+    </div>
+    <div>
+      <h1 class="h1">טריוויה משפחתית</h1>
+      <div class="sub">שאלות ספורט לנסיעות וזמן המתנה</div>
+    </div>
+    <div class="card stack">
+      <div class="h2">סיבוב ${p.round + 1}</div>
+      <div class="small">${p.q > 0 ? `הגעת לשאלה ${p.q + 1} מתוך ${ROUND}` : `${ROUND} שאלות מהירות, 10 נקודות לכל תשובה נכונה.`}</div>
+      <button type="button" class="btn" id="tv-start">${p.q > 0 ? 'המשך סיבוב' : 'התחל לשחק'}</button>
+    </div>
+    <div class="card stack-s">
+      <div class="h2">טבלת ניקוד</div>
+      ${board.map((b, idx) => `<div class="between">
+        <div class="row">${av(b.m)} <span>${idx + 1}. ${esc(b.m.name)}</span></div>
+        <strong>${b.sc.pts} נק׳</strong>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function renderMore() {
+  const me = S.members[S.uid];
+  const mySos = Boolean(S.sos[S.uid]?.active);
+
+  return `<div class="stack">
+    <h1 class="h1">עוד</h1>
+
+    <div class="card between">
+      <div class="row">
+        ${av(me)}
+        <div>
+          <div class="h2">${esc(me.name)}</div>
+          <div class="small">מחובר לענן בזמן אמת</div>
+        </div>
+      </div>
+      <button type="button" class="lnk" id="edit-profile">ערוך פרופיל</button>
+    </div>
+
+    <div class="stack-s">
+      <button type="button" class="tab-link" data-tab="trivia">
+        <div>
+          <div style="font-weight:700">טריוויה משפחתית</div>
+          <div class="small">משחק שאלות קצר לנסיעות</div>
+        </div>
+        ${svg('chev', 18)}
+      </button>
+      <button type="button" class="tab-link" id="open-trip-sheet-2">
+        <div>
+          <div style="font-weight:700">פרטי הטיול</div>
+          <div class="small">${esc(S.trip?.title || 'הגדרת שם ותאריכים')}</div>
+        </div>
+        ${svg('chev', 18)}
+      </button>
+    </div>
+
+    <div class="card stack-s">
+      <div class="h2">חירום (SOS)</div>
+      <div class="small">שולח התראה בולטת לכל בני המשפחה עם המיקום האחרון שלך.</div>
+      ${mySos ? `<button type="button" class="btn2 danger" data-sos-clear="${esc(S.uid)}">בטל התראת SOS פעילה</button>`
+        : S.sosAsk ? `<div class="stack-s">
+          <div class="warn">לשלוח התראת חירום לכל המשפחה עכשיו?</div>
+          <div class="row">
+            <button type="button" class="btn" style="flex:1;background:var(--bad)" id="sos-confirm">כן, שלח SOS</button>
+            <button type="button" class="btn2" style="flex:1" id="sos-cancel">ביטול</button>
+          </div>
+        </div>`
+        : `<button type="button" class="btn2 danger" id="sos-trigger">הפעל התראת SOS</button>`}
+    </div>
+  </div>`;
+}
+
+function openSheet(html) {
+  sheetCfg = true;
+  $('#sheet').innerHTML = `<div class="ov" id="sh-ov"></div><div class="sh" role="dialog" aria-modal="true">${html}</div>`;
+}
+function closeSheet() {
+  sheetCfg = null;
+  $('#sheet').innerHTML = '';
+}
+
+function showTripSheet() {
+  const t = S.trip || {};
+  openSheet(`
+    <div class="between"><h2>פרטי הטיול</h2><button type="button" class="lnk" id="sh-close">${svg('x')}</button></div>
+    <label class="fld">שם הטיול<input id="f-t-title" value="${esc(t.title || '')}" placeholder="לדוגמה: איטליה 2026"></label>
+    <label class="fld">יעד<input id="f-t-dest" value="${esc(t.dest || '')}" placeholder="לדוגמה: אגם גארדה וונציה"></label>
+    <div class="row">
+      <label class="fld" style="flex:1">תאריך התחלה<input type="date" id="f-t-start" value="${esc(t.start || '')}"></label>
+      <label class="fld" style="flex:1">תאריך סיום<input type="date" id="f-t-end" value="${esc(t.end || '')}"></label>
+    </div>
+    <button type="button" class="btn" id="save-trip">שמור טיול</button>
+  `);
+}
+
+function showDaySheet(dayId) {
+  const d = dayId ? S.days.find(x => x.id === dayId) : null;
+  const nextNum = S.days.length + 1;
+  openSheet(`
+    <div class="between"><h2>${d ? 'עריכת יום' : 'יום חדש'}</h2><button type="button" class="lnk" id="sh-close">${svg('x')}</button></div>
+    <label class="fld">כותרת היום<input id="f-d-title" value="${esc(d?.title || 'יום ' + nextNum)}" placeholder="יום 1 • נחיתה"></label>
+    <label class="fld">תאריך<input type="date" id="f-d-date" value="${esc(d?.date || '')}"></label>
+    <label class="fld">הערה ליום<input id="f-d-note" value="${esc(d?.note || '')}" placeholder="דגשים מיוחדים ליום זה"></label>
+    <button type="button" class="btn" id="save-day" data-id="${esc(d?.id || '')}">שמור יום</button>
+    ${d ? `<button type="button" class="btn2 danger" id="del-day" data-id="${esc(d.id)}">מחק יום</button>` : ''}
+  `);
+}
+
+function showStopSheet(stopId) {
+  const s = stopId ? S.stops.find(x => x.id === stopId) : null;
+  openSheet(`
+    <div class="between"><h2>${s ? 'עריכת תחנה' : 'תחנה חדשה'}</h2><button type="button" class="lnk" id="sh-close">${svg('x')}</button></div>
+    <label class="fld">שם התחנה<input id="f-s-title" value="${esc(s?.title || '')}" placeholder="לדוגמה: הגעה למלון"></label>
+    <div class="row">
+      <label class="fld" style="flex:1">שעה<input type="time" id="f-s-time" value="${esc(s?.time || '')}"></label>
+      <label class="fld" style="flex:1">סוג
+        <select id="f-s-kind">${KINDS.map(([k, l]) => `<option value="${k}" ${(s?.kind || 'fun') === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      </label>
+    </div>
+    <label class="fld">מיקום / כתובת לניווט<input id="f-s-place" value="${esc(s?.place || '')}" placeholder="שם מקום או כתובת מדויקת"></label>
+    <label class="fld">הערה<input id="f-s-note" value="${esc(s?.note || '')}" placeholder="פרטים נוספים"></label>
+    <button type="button" class="btn" id="save-stop" data-id="${esc(s?.id || '')}">שמור תחנה</button>
+    ${s ? `<button type="button" class="btn2 danger" id="del-stop" data-id="${esc(s.id)}">מחק תחנה</button>` : ''}
+  `);
+}
+
+function showTicketSheet(ticketId) {
+  const t = ticketId ? S.tickets.find(x => x.id === ticketId) : null;
+  openSheet(`
+    <div class="between"><h2>${t ? 'עריכת כרטיס' : 'כרטיס חדש'}</h2><button type="button" class="lnk" id="sh-close">${svg('x')}</button></div>
+    <label class="fld">כותרת<input id="f-k-title" value="${esc(t?.title || '')}" placeholder="לדוגמה: טיסת אל על הלוך"></label>
+    <div class="row">
+      <label class="fld" style="flex:1">סוג
+        <select id="f-k-kind">${KINDS.map(([k, l]) => `<option value="${k}" ${(t?.kind || 'flight') === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      </label>
+      <label class="fld" style="flex:1">מועד<input id="f-k-when" value="${esc(t?.when || '')}" placeholder="15.08 • 08:30"></label>
+    </div>
+    <label class="fld">מספר הזמנה / קוד<input id="f-k-code" value="${esc(t?.code || '')}" placeholder="ABC123"></label>
+    <label class="fld">קישור למסמך / כרטיס<input type="url" id="f-k-link" value="${esc(t?.link || '')}" placeholder="https://..."></label>
+    <label class="fld">הערה<input id="f-k-note" value="${esc(t?.note || '')}" placeholder="שער, מושבים או פרטים"></label>
+    <button type="button" class="btn" id="save-ticket" data-id="${esc(t?.id || '')}">שמור כרטיס</button>
+    ${t ? `<button type="button" class="btn2 danger" id="del-ticket" data-id="${esc(t.id)}">מחק כרטיס</button>` : ''}
+  `);
+}
+
+function showProfileSheet() {
+  const me = S.members[S.uid] || { name: '', color: 0 };
+  openSheet(`
+    <div class="between"><h2>עריכת פרופיל</h2><button type="button" class="lnk" id="sh-close">${svg('x')}</button></div>
+    <label class="fld">שם תצוגה<input id="f-p-name" value="${esc(me.name)}"></label>
+    <div class="fld">צבע
+      <div class="row" style="margin-top:4px">${COLORS.map((c, i) => `<button type="button" data-p-col="${i}" style="width:44px;height:44px;border-radius:50%;background:${c};border:${(me.color || 0) === i ? '3px solid var(--acc)' : '1.5px solid var(--field)'}"></button>`).join('')}</div>
+    </div>
+    <button type="button" class="btn" id="save-profile" data-col="${me.color || 0}">שמור פרופיל</button>
+  `);
+}
+
+document.addEventListener('input', e => {
+  if (e.target.id === 'ob-name') {
+    S.ob.name = e.target.value;
+    const b = $('#ob-next0');
+    if (b) b.disabled = !S.ob.name.trim();
+  }
+});
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('button, a');
+  if (!el) return;
+
+  if (el.id === 'sh-ov' || el.id === 'sh-close') { closeSheet(); return; }
+
+  if (el.dataset.obCol !== undefined) { S.ob.color = Number(el.dataset.obCol); draw(); return; }
+  if (el.id === 'ob-next0') { if (S.ob.name.trim()) { S.ob.step = 1; draw(); } return; }
+  if (el.id === 'ob-loc-yes') { S.ob.loc = 'yes'; startLocWatch(false); S.ob.step = 2; draw(); return; }
+  if (el.id === 'ob-loc-no') { S.ob.loc = 'no'; S.ob.step = 2; draw(); return; }
+  if (el.id === 'ob-done') {
+    const memberObj = { name: S.ob.name.trim() || 'בן משפחה', color: S.ob.color };
+    S.members[S.uid] = memberObj;
+    syncRoom({ [`members/${S.uid}`]: memberObj });
+    S.resetScroll = true;
+    draw();
+    return;
+  }
+
+  if (el.dataset.tab) {
+    stopTriviaTimers();
+    S.tab = el.dataset.tab;
+    S.day = null;
+    S.resetScroll = true;
+    draw();
+    return;
+  }
+
+  if (el.id === 'open-trip-sheet' || el.id === 'open-trip-sheet-2') { showTripSheet(); return; }
+  if (el.id === 'save-trip') {
+    const title = $('#f-t-title').value.trim();
+    if (!title) { toast('נא להזין שם לטיול'); return; }
+    const tripObj = {
+      id: S.trip?.id || newId(),
+      title,
+      dest: $('#f-t-dest').value.trim(),
+      start: $('#f-t-start').value,
+      end: $('#f-t-end').value
+    };
+    S.trip = tripObj;
+    syncRoom({ trip: tripObj });
+    closeSheet();
+    draw();
+    toast('פרטי הטיול נשמרו');
+    return;
+  }
+
+  if (el.id === 'add-day-btn') { showDaySheet(null); return; }
+  if (el.dataset.openDay) { S.day = el.dataset.openDay; S.filter = 'all'; S.resetScroll = true; draw(); return; }
+  if (el.id === 'back-route') { S.day = null; S.resetScroll = true; draw(); return; }
+  if (el.dataset.editDay) { showDaySheet(el.dataset.editDay); return; }
+  if (el.id === 'save-day') {
+    const id = el.dataset.id;
+    const title = $('#f-d-title').value.trim() || 'יום בטיול';
+    const date = $('#f-d-date').value;
+    const note = $('#f-d-note').value.trim();
+    if (id) {
+      const d = S.days.find(x => x.id === id);
+      if (d) Object.assign(d, { title, date, note });
+    } else {
+      S.days.push({ id: newId(), num: S.days.length + 1, title, date, note });
+    }
+    syncRoom({ days: S.days });
+    closeSheet();
+    draw();
+    toast('היום נשמר');
+    return;
+  }
+  if (el.id === 'del-day') {
+    const id = el.dataset.id;
+    S.days = S.days.filter(x => x.id !== id);
+    S.stops = S.stops.filter(x => x.dayId !== id);
+    if (S.day === id) S.day = null;
+    syncRoom({ days: S.days, stops: S.stops });
+    closeSheet();
+    draw();
+    toast('היום נמחק');
+    return;
+  }
+
+  if (el.dataset.filt) { S.filter = el.dataset.filt; draw(); return; }
+  if (el.id === 'add-stop-btn') { showStopSheet(null); return; }
+  if (el.dataset.editStop) { showStopSheet(el.dataset.editStop); return; }
+  if (el.id === 'save-stop') {
+    const id = el.dataset.id;
+    const title = $('#f-s-title').value.trim();
+    if (!title) { toast('נא להזין שם לתחנה'); return; }
+    const payload = {
+      title,
+      time: $('#f-s-time').value,
+      kind: $('#f-s-kind').value,
+      place: $('#f-s-place').value.trim(),
+      note: $('#f-s-note').value.trim()
+    };
+    if (id) {
+      const s = S.stops.find(x => x.id === id);
+      if (s) Object.assign(s, payload);
+    } else {
+      S.stops.push({ id: newId(), dayId: S.day, order: S.stops.length, ...payload });
+    }
+    syncRoom({ stops: S.stops });
+    closeSheet();
+    draw();
+    toast('התחנה נשמרה');
+    return;
+  }
+  if (el.id === 'del-stop') {
+    const id = el.dataset.id;
+    S.stops = S.stops.filter(x => x.id !== id);
+    syncRoom({ stops: S.stops });
+    closeSheet();
+    draw();
+    toast('התחנה נמחקה');
+    return;
+  }
+
+  if (el.dataset.mm) { S.mapMode = el.dataset.mm; draw(); return; }
+  if (el.dataset.cat) { S.cat = el.dataset.cat; draw(); return; }
+  if (el.id === 'toggle-loc') {
+    if (S.locs[S.uid]?.on) stopLocWatch();
+    else startLocWatch(false);
+    return;
+  }
+
+  if (el.id === 'add-ticket-btn') { showTicketSheet(null); return; }
+  if (el.dataset.editTicket) { showTicketSheet(el.dataset.editTicket); return; }
+  if (el.id === 'save-ticket') {
+    const id = el.dataset.id;
+    const title = $('#f-k-title').value.trim();
+    if (!title) { toast('נא להזין כותרת לכרטיס'); return; }
+    const payload = {
+      title,
+      kind: $('#f-k-kind').value,
+      when: $('#f-k-when').value.trim(),
+      code: $('#f-k-code').value.trim(),
+      link: $('#f-k-link').value.trim(),
+      note: $('#f-k-note').value.trim()
+    };
+    if (id) {
+      const t = S.tickets.find(x => x.id === id);
+      if (t) Object.assign(t, payload);
+    } else {
+      S.tickets.push({ id: newId(), ...payload });
+    }
+    syncRoom({ tickets: S.tickets });
+    closeSheet();
+    draw();
+    toast('הכרטיס נשמר');
+    return;
+  }
+  if (el.id === 'del-ticket') {
+    const id = el.dataset.id;
+    S.tickets = S.tickets.filter(x => x.id !== id);
+    syncRoom({ tickets: S.tickets });
+    closeSheet();
+    draw();
+    toast('הכרטיס נמחק');
+    return;
+  }
+  if (el.dataset.copy) {
+    navigator.clipboard?.writeText(el.dataset.copy);
+    toast('הקוד הועתק');
+    return;
+  }
+
+  if (el.id === 'tv-start') { startTriviaQuestion(); return; }
+  if (el.id === 'tv-pause' || el.id === 'tv-back') { stopTriviaTimers(); S.tv = 'lobby'; draw(); return; }
+  if (el.dataset.ans !== undefined) { answerTrivia(Number(el.dataset.ans)); return; }
+  if (el.id === 'tv-next-round') {
+    const p = ensureProg();
+    p.round++;
+    p.q = 0;
+    p.ans = null;
+    p.ok = 0;
+    syncRoom({ [`prog/${S.uid}`]: p });
+    startTriviaQuestion();
+    return;
+  }
+
+  if (el.id === 'edit-profile') { showProfileSheet(); return; }
+  if (el.dataset.pCol !== undefined) {
+    const col = Number(el.dataset.pCol);
+    const btn = $('#save-profile');
+    if (btn) btn.dataset.col = col;
+    document.querySelectorAll('[data-p-col]').forEach((b, i) => {
+      b.style.border = i === col ? '3px solid var(--acc)' : '1.5px solid var(--field)';
+    });
+    return;
+  }
+  if (el.id === 'save-profile') {
+    const name = $('#f-p-name').value.trim();
+    if (!name) { toast('נא להזין שם'); return; }
+    const col = Number(el.dataset.col || 0);
+    const memberObj = { name, color: col };
+    S.members[S.uid] = memberObj;
+    syncRoom({ [`members/${S.uid}`]: memberObj });
+    closeSheet();
+    draw();
+    toast('הפרופיל עודכן');
+    return;
+  }
+
+  if (el.id === 'sos-trigger') { S.sosAsk = true; draw(); return; }
+  if (el.id === 'sos-cancel') { S.sosAsk = false; draw(); return; }
+  if (el.id === 'sos-confirm') {
+    S.sosAsk = false;
+    const sosObj = { active: true, at: Date.now(), name: S.members[S.uid]?.name || '' };
+    S.sos[S.uid] = sosObj;
+    startLocWatch(true);
+    syncRoom({ [`sos/${S.uid}`]: sosObj });
+    draw();
+    toast('התראת SOS נשלחה למשפחה');
+    return;
+  }
+  if (el.dataset.sosClear) {
+    const k = el.dataset.sosClear;
+    delete S.sos[k];
+    syncRoom({ [`sos/${k}`]: null });
+    draw();
+    toast('התראת ה-SOS נסגרה');
+    return;
+  }
+});
+
+render();
+</script>
+</body>
+</html>
+"""
+
+with open("index.html", "w", encoding="utf-8") as f:
+    f.write(html_content.strip() + "\n")
+
+print("Generated complete index.html:", len(html_content.strip().splitlines()), "lines")
