@@ -60,11 +60,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .seg{display:flex;gap:4px;background:var(--chip);border-radius:14px;padding:4px}
 .seg button{flex:1;min-height:44px;border:0;border-radius:11px;background:transparent;color:var(--mut);font-weight:600}
 .seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
-.hero{background:#161616;color:#FFFFFF;border-radius:24px;padding:22px 20px 20px;display:flex;flex-direction:column;gap:16px}
-.hero .big{font-size:46px;line-height:1;font-weight:700;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.hero{background:var(--card);color:var(--ink);border:1.5px solid var(--acc);border-radius:24px;padding:22px 20px 20px;display:flex;flex-direction:column;gap:16px;box-shadow:0 2px 8px rgba(37,99,235,.08)}
+.hero .big{font-size:46px;line-height:1;font-weight:700;letter-spacing:-1px;font-variant-numeric:tabular-nums;color:var(--acc)}
 .hero .hb{flex:1;min-height:48px;border-radius:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}
-.hero .hb1{background:#2563EB;color:#FFFFFF}
-.hero .hb2{border:1.5px solid #FFFFFF;color:#FFFFFF;background:transparent}
+.hero .hb1{background:var(--acc);color:var(--on)}
+.hero .hb2{border:1.5px solid var(--field);color:var(--ink);background:var(--bg)}
 .av{flex:none;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#111111;border:1px solid rgba(0,0,0,.08)}
 .av.s{width:34px;height:34px;font-size:14px;border:2px solid var(--bg);margin-inline-start:-8px}
 .time{color:var(--acc);font-weight:700;font-variant-numeric:tabular-nums}
@@ -79,7 +79,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .opt:disabled{cursor:default}
 .bar{height:6px;border-radius:3px;background:var(--chip);overflow:hidden}
 .bar i{display:block;height:6px;background:var(--acc);transition:width .25s ease}
-.ov{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:20}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:20}
 .sh{position:fixed;left:0;right:0;bottom:0;z-index:21;max-width:520px;margin:0 auto;background:var(--card);border-radius:24px 24px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;max-height:88%;overflow-y:auto;box-shadow:0 -8px 28px rgba(0,0,0,.14)}
 .sh h2{margin:0 0 4px;font-size:22px}
 .fld{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:15px}
@@ -160,4 +160,226 @@ if (!uid) {
 
 const TQ = [
   { cat: 'כדורגל', q: 'איזו מדינה זכתה במונדיאל 2022?', o: ['צרפת', 'ארגנטינה', 'קרואטיה', 'ברזיל'], a: 1 },
-  { cat: 'כדורגל', q: 'מי השחקן עם הכי הרבה כדורי זהב בהיסטוריה?',
+  { cat: 'כדורגל', q: 'מי השחקן עם הכי הרבה כדורי זהב בהיסטוריה?', o: ['כריסטיאנו רונאלדו', 'מישל פלטיני', 'ליונל מסי', 'יוהאן קרויף'], a: 2 },
+  { cat: 'אולימפיאדה', q: 'באיזו עיר נערכה אולימפיאדת הקיץ של 2016?', o: ['לונדון', 'ריו דה ז׳נירו', 'בייג׳ינג', 'טוקיו'], a: 1 },
+  { cat: 'טניס', q: 'כמה תארי גרנד סלאם ביחידים זכה בהם רפאל נדאל?', o: ['20', '22', '24', '18'], a: 1 },
+  { cat: 'כדורסל', q: 'עם איזו קבוצה זכה מייקל ג׳ורדן בשש אליפויות NBA?', o: ['לוס אנג׳לס לייקרס', 'בוסטון סלטיקס', 'שיקגו בולס', 'דטרויט פיסטונס'], a: 2 },
+  { cat: 'כדורגל', q: 'איזו מדינה זכתה בהכי הרבה גביעי עולם בגברים?', o: ['גרמניה', 'איטליה', 'ארגנטינה', 'ברזיל'], a: 3 },
+  { cat: 'ספורט ישראלי', q: 'כמה פעמים זכתה מכבי תל אביב ביורוליג בכדורסל?', o: ['4', '5', '6', '7'], a: 2 },
+  { cat: 'כדורגל', q: 'באיזה מונדיאל הבקיע מראדונה את ״יד האלוהים״?', o: ['1982', '1986', '1990', '1994'], a: 1 },
+  { cat: 'אתלטיקה', q: 'מי מחזיק בשיא העולם ב-100 מטר גברים?', o: ['טייסון גיי', 'יוהאן בלייק', 'יוסיין בולט', 'אסאפה פאוול'], a: 2 },
+  { cat: 'אתלטיקה', q: 'מה אורכו המדויק של מרתון?', o: ['40 ק״מ', '42.195 ק״מ', '45 ק״מ', '38.5 ק״מ'], a: 1 },
+  { cat: 'טניס', q: 'על איזה משטח משחקים ברולאן גארוס?', o: ['דשא', 'מגרש קשיח', 'חימר', 'פרקט'], a: 2 },
+  { cat: 'ספורט ישראלי', q: 'באיזו שנה זכה גל פרידמן במדליית זהב אולימפית בגלישת רוח?', o: ['2000', '2004', '2008', '2012'], a: 1 },
+  { cat: 'ספורט ישראלי', q: 'באיזה ענף זכתה לינוי אשרם בזהב אולימפי?', o: ['התעמלות אמנותית', 'שחייה', 'ג׳ודו', 'התעמלות מכשירים'], a: 0 },
+  { cat: 'כדורגל', q: 'באיזו מדינה נערך מונדיאל 2018?', o: ['רוסיה', 'ברזיל', 'קטאר', 'גרמניה'], a: 0 },
+  { cat: 'כדורגל', q: 'מי היה מלך השערים של מונדיאל 2022?', o: ['ליונל מסי', 'קיליאן אמבפה', 'אוליבייה ז׳ירו', 'חוליאן אלברס'], a: 1 },
+  { cat: 'כדורגל', q: 'איזו קבוצה זכתה בליגת האלופות הכי הרבה פעמים?', o: ['ברצלונה', 'מילאן', 'ריאל מדריד', 'ליברפול'], a: 2 },
+  { cat: 'כדורסל', q: 'איזו קבוצה זכתה באליפות ה-NBA ב-2023?', o: ['מיאמי היט', 'דנבר נאגטס', 'בוסטון סלטיקס', 'גולדן סטייט ווריורס'], a: 1 },
+  { cat: 'כדורסל', q: 'מי מחזיק בשיא הנקודות בכל הזמנים ב-NBA?', o: ['קארים עבדול ג׳אבר', 'מייקל ג׳ורדן', 'לברון ג׳יימס', 'קארל מאלון'], a: 2 },
+  { cat: 'טניס', q: 'על איזה משטח משחקים בווימבלדון?', o: ['חימר', 'דשא', 'מגרש קשיח', 'פרקט'], a: 1 },
+  { cat: 'פורמולה 1', q: 'איזו קבוצה מזוהה עם הצבע האדום ועם הסוס הקופץ?', o: ['מקלארן', 'מרצדס', 'פרארי', 'רד בול'], a: 2 }
+];
+
+function optOrder(qi) {
+  let a = [0, 1, 2, 3], x = Math.imul(qi + 1, 2654435761) >>> 0;
+  for (let i = 3; i > 0; i--) {
+    x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
+    const j = x % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+let PERM = null;
+function qIndex(p, seedStr) {
+  if (!PERM || PERM.length !== TQ.length) {
+    let h = 2166136261;
+    const str = String(seedStr || 'family');
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    let a = h >>> 0;
+    const rnd = () => {
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    PERM = TQ.map((_, k) => k);
+    for (let i = PERM.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [PERM[i], PERM[j]] = [PERM[j], PERM[i]];
+    }
+  }
+  return PERM[(p.round * ROUND + p.q) % PERM.length];
+}
+
+const S = {
+  loaded: false,
+  uid,
+  tab: 'home',
+  day: null,
+  filter: 'all',
+  mapMode: 'near',
+  cat: 'restaurants',
+  trip: null,
+  days: [],
+  stops: [],
+  tickets: [],
+  members: {},
+  locs: {},
+  scores: {},
+  prog: null,
+  geo: '',
+  tv: 'lobby',
+  tvSec: QUESTION_SEC,
+  sos: {},
+  sosAsk: false,
+  sosBusy: false,
+  gopen: {},
+  ob: { step: 0, name: '', color: 0, loc: '' },
+  resetScroll: false
+};
+
+let raf = 0, sheetCfg = null, watchId = null, lastPush = 0, pushBusy = false;
+let tvInterval = null, tvAdvanceTimeout = null;
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+const normalizeArr = val => Array.isArray(val) ? val : (val && typeof val === 'object' ? Object.values(val) : []);
+
+onValue(ROOM_REF, snap => {
+  const d = snap.val() || {};
+  S.loaded = true;
+  S.trip = d.trip || null;
+  S.days = normalizeArr(d.days);
+  S.stops = normalizeArr(d.stops);
+  S.tickets = normalizeArr(d.tickets);
+  S.members = d.members || {};
+  S.locs = d.locs || {};
+  S.scores = d.scores || {};
+  S.prog = (d.prog && d.prog[S.uid]) ? d.prog[S.uid] : S.prog;
+  S.sos = d.sos || {};
+  const myLoc = S.locs[S.uid];
+  if (myLoc && myLoc.on && !watchId) startLocWatch(true);
+  draw();
+}, err => {
+  S.loaded = true;
+  draw();
+  toast('שגיאת חיבור לענן: ' + (err?.message || 'בדוק כללי גישה'));
+});
+
+function syncRoom(patch) {
+  return update(ROOM_REF, patch).catch(e => {
+    toast('לא ניתן לשמור לענן: ' + (e?.message || 'שגיאה'));
+  });
+}
+
+const draw = () => {
+  if (!raf) raf = requestAnimationFrame(() => {
+    raf = 0;
+    render();
+    if (S.resetScroll) { S.resetScroll = false; const v = $('#view'); if (v) v.scrollTop = 0; }
+  });
+};
+
+let toastTimer;
+const toast = m => {
+  clearTimeout(toastTimer);
+  const b = $('#toastbox');
+  if (!b) return;
+  b.innerHTML = `<div class="toast" role="status">${esc(m)}</div>`;
+  toastTimer = setTimeout(() => { b.innerHTML = ''; }, 3200);
+};
+
+const av = (m, s) => `<div class="av${s ? ' s' : ''}" style="background:${COLORS[m?.color || 0]}" aria-hidden="true">${esc((m?.name || '?').trim().slice(0, 1))}</div>`;
+const sortedDays = () => [...S.days].sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.num || 0) - (b.num || 0));
+const sortedStops = d => S.stops.filter(x => x.dayId === d).sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99') || (a.order || 0) - (b.order || 0));
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T12:00:00');
+  return isNaN(d) ? iso : d.toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function ago(ts) {
+  if (!ts) return 'לא שותף';
+  const m = Math.round((Date.now() - ts) / 60000);
+  if (m < 1) return 'עודכן הרגע';
+  if (m < 60) return `לפני ${m} דק׳`;
+  const h = Math.round(m / 60);
+  return h < 24 ? `לפני ${h} שע׳` : `לפני ${Math.round(h / 24)} ימים`;
+}
+
+function coords(s) {
+  if (s && typeof s.lat === 'number' && typeof s.lng === 'number' && !isNaN(s.lat) && !isNaN(s.lng)) {
+    return `${s.lat.toFixed(6)},${s.lng.toFixed(6)}`;
+  }
+  return '';
+}
+
+function placeUrl(s) {
+  const ll = coords(s), q = encodeURIComponent(s.place || s.title || '');
+  return ll ? `https://maps.apple.com/?q=${q || ll}&ll=${ll}` : `https://maps.apple.com/?q=${q}`;
+}
+
+function navUrl(s, appName) {
+  const ll = coords(s), q = encodeURIComponent(s.place || s.title || '');
+  if (appName === 'waze') return ll ? `https://waze.com/ul?ll=${ll}&navigate=yes` : `https://waze.com/ul?q=${q}&navigate=yes`;
+  if (appName === 'google') return `https://www.google.com/maps/dir/?api=1&destination=${ll || q}`;
+  return ll ? `https://maps.apple.com/?daddr=${ll}` : `https://maps.apple.com/?daddr=${q}`;
+}
+
+function nearUrl(cat, appName) {
+  const l = S.locs[S.uid], has = l && typeof l.lat === 'number' && typeof l.lng === 'number';
+  const q = encodeURIComponent(cat);
+  if (appName === 'waze') return has ? `https://waze.com/ul?ll=${l.lat},${l.lng}&q=${q}` : `https://waze.com/ul?q=${q}`;
+  if (appName === 'google') return has ? `https://www.google.com/maps/search/?api=1&query=${q}&center=${l.lat},${l.lng}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
+  return has ? `https://maps.apple.com/?q=${q}&sll=${l.lat},${l.lng}` : `https://maps.apple.com/?q=${q}`;
+}
+
+function nextStop() {
+  const ds = sortedDays();
+  if (!ds.length) return null;
+  const now = new Date(), iso = now.toISOString().slice(0, 10), hhmm = pad(now.getHours()) + ':' + pad(now.getMinutes());
+  for (const d of ds) {
+    if (d.date && d.date < iso) continue;
+    for (const s of sortedStops(d.id)) {
+      if (d.date === iso && s.time && s.time < hhmm) continue;
+      return { stop: s, day: d };
+    }
+  }
+  for (const d of ds) {
+    const ss = sortedStops(d.id);
+    if (ss.length) return { stop: ss[0], day: d };
+  }
+  return null;
+}
+
+function countdown(trip) {
+  if (!trip || !trip.start) return '';
+  const a = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00');
+  const b = new Date(trip.start + 'T00:00:00');
+  const e = trip.end ? new Date(trip.end + 'T00:00:00') : b;
+  const n = Math.round((b - a) / 86400000);
+  if (n > 1) return `בעוד ${n} ימים`;
+  if (n === 1) return 'מתחיל מחר';
+  if (a <= e) return 'בטיול עכשיו';
+  return 'הטיול הסתיים';
+}
+
+function pushLoc(pos) {
+  const now = Date.now();
+  if (pushBusy || now - lastPush < 10000) return;
+  pushBusy = true;
+  const locData = {
+    lat: pos.coords.latitude,
+    lng: pos.coords.longitude,
+    acc: Math.round(pos.coords.accuracy || 0),
+    at: now,
+    on: true
+  };
+  S.locs[S.uid] = locData;
+  S.geo = '';
+  syncRoom({ [`locs/${S.uid}`]: locData }).finally(() => {
+    lastPush = Date.now();
+    pushBusy = false;
+    draw();
