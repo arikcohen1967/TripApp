@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="he" dir="rtl" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>הטיול המשפחתי</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F5F5;
+  --card:#FFFFFF;
+  --line:#E4E4E4;
+  --ink:#111111;
+  --mut:#5F5F5F;
+  --acc:#2563EB;
+  --on:#FFFFFF;
+  --soft:#E6EDFB;
+  --chip:#EFEFEF;
+  --bad:#B3261E;
+  --badsoft:#FBEAE7;
+  --field:#CFCFCF;
+  color-scheme:light;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:'Heebo',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
+button,input,select{font-family:inherit;font-size:16px;color:inherit}
+button{cursor:pointer}
+a{text-decoration:none;color:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#app{height:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column}
+#view{flex:1;min-height:0;overflow-y:auto;padding:20px 20px 28px}
+#nav{flex:none;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 6px 8px}
+#nav button{flex:1;min-height:56px;border:0;background:transparent;color:var(--mut);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:13px;font-weight:600;border-radius:12px}
+#nav button.on{color:var(--acc);background:var(--soft)}
+.stack{display:flex;flex-direction:column;gap:20px}
+.stack-s{display:flex;flex-direction:column;gap:10px}
+.topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;background:var(--bg);margin:-20px -20px 8px;padding:8px 14px;border-bottom:1px solid var(--line)}
+.topbar .lnk{display:flex;align-items:center;gap:6px;min-width:64px}
+.row{display:flex;align-items:center;gap:12px}
+.between{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.h1{margin:0;font-size:34px;line-height:1.12;font-weight:700;letter-spacing:-.4px}
+.h2{margin:0;font-size:19px;font-weight:600}
+.sub{color:var(--mut);font-size:16px}
+.small{color:var(--mut);font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.btn{min-height:50px;padding:0 20px;border-radius:14px;border:0;background:var(--acc);color:var(--on);font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center}
+.btn:disabled{opacity:.45;cursor:default}
+.btn2{min-height:48px;padding:0 18px;border-radius:14px;border:1.5px solid var(--field);background:var(--card);color:var(--ink);font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center}
+.btn2.danger{color:var(--bad);border-color:var(--bad);background:var(--badsoft)}
+.lnk{min-height:44px;padding:0 6px;border:0;background:transparent;color:var(--acc);font-weight:600;display:inline-flex;align-items:center;justify-content:center}
+.mini{min-height:44px;min-width:58px;padding:0 12px;border-radius:12px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.mini.p{background:var(--acc);color:var(--on)}
+.mini.o{border:1.5px solid var(--field);background:var(--card);color:var(--ink)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.chip{flex:none;min-height:44px;padding:0 16px;border-radius:22px;border:1.5px solid var(--line);background:var(--card);font-weight:600;color:var(--ink)}
+.chip.on{background:var(--acc);border-color:var(--acc);color:var(--on)}
+.seg{display:flex;gap:4px;background:var(--chip);border-radius:14px;padding:4px}
+.seg button{flex:1;min-height:44px;border:0;border-radius:11px;background:transparent;color:var(--mut);font-weight:600}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.hero{background:#161616;color:#FFFFFF;border-radius:24px;padding:22px 20px 20px;display:flex;flex-direction:column;gap:16px}
+.hero .big{font-size:46px;line-height:1;font-weight:700;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.hero .hb{flex:1;min-height:48px;border-radius:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}
+.hero .hb1{background:#2563EB;color:#FFFFFF}
+.hero .hb2{border:1.5px solid #FFFFFF;color:#FFFFFF;background:transparent}
+.av{flex:none;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#111111;border:1px solid rgba(0,0,0,.08)}
+.av.s{width:34px;height:34px;font-size:14px;border:2px solid var(--bg);margin-inline-start:-8px}
+.time{color:var(--acc);font-weight:700;font-variant-numeric:tabular-nums}
+.note{background:var(--soft);border-radius:16px;padding:12px 16px;font-size:15px}
+.warn{background:var(--badsoft);color:var(--ink);border:1px solid rgba(179,38,30,.22);border-radius:16px;padding:12px 16px;font-size:15px}
+.sos-banner{background:var(--bad);color:#FFFFFF;border-radius:20px;padding:16px;margin-bottom:16px;display:flex;flex-direction:column;gap:12px}
+.err{color:var(--bad);font-size:14px;min-height:0}
+.tab-link{min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 16px;width:100%;text-align:start}
+.opt{min-height:58px;border-radius:16px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;border:1.5px solid var(--line);background:var(--card);font-weight:500;width:100%;text-align:start}
+.opt.ok{background:var(--soft);border:2px solid var(--acc)}
+.opt.no{background:var(--badsoft);border:2px solid var(--bad)}
+.opt:disabled{cursor:default}
+.bar{height:6px;border-radius:3px;background:var(--chip);overflow:hidden}
+.bar i{display:block;height:6px;background:var(--acc);transition:width .25s ease}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:20}
+.sh{position:fixed;left:0;right:0;bottom:0;z-index:21;max-width:520px;margin:0 auto;background:var(--card);border-radius:24px 24px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;max-height:88%;overflow-y:auto;box-shadow:0 -8px 28px rgba(0,0,0,.14)}
+.sh h2{margin:0 0 4px;font-size:22px}
+.fld{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:15px}
+.fld input,.fld select{min-height:52px;border-radius:14px;border:1.5px solid var(--field);background:var(--bg);padding:0 14px;font-weight:400}
+.toast{position:fixed;left:16px;right:16px;bottom:88px;z-index:30;max-width:480px;margin:0 auto;background:var(--ink);color:var(--on);border-radius:14px;padding:12px 16px;font-size:15px;box-shadow:0 4px 16px rgba(0,0,0,.16)}
+.sw{width:52px;height:30px;border-radius:15px;padding:3px;display:flex;align-items:center;background:var(--field);transition:background .2s ease}
+.sw.on{background:var(--acc);justify-content:flex-end}
+.sw i{width:24px;height:24px;border-radius:50%;background:#FFFFFF;display:block;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+@media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}}
+</style>
+</head>
+<body>
+<div id="app">
+  <main id="view"></main>
+  <nav id="nav" aria-label="ניווט ראשי"></nav>
+</div>
+<div id="sheet"></div>
+<div id="toastbox"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+
+  var IC = {
+    home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+    route: '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
+    pin: '<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+    ticket: '<path d="M4 6h16v4a2 2 0 0 0 0 4v4H4v-4a2 2 0 0 0 0-4z"/><path d="M14 6v12" stroke-dasharray="2 3"/>',
+    more: '<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>',
+    nav: '<path d="M3 11l18-8-8 18-2-8z"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    back: '<path d="M9 6l6 6-6 6"/>',
+    chev: '<path d="M15 6l-6 6 6 6"/>',
+    pause: '<path d="M8 5v14M16 5v14"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>'
+  };
+  var svg = function (n, s) {
+    s = s || 20;
+    return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + IC[n] + '</svg>';
+  };
+
+  var COLORS = ['#E0E0E0', '#E8E4D8', '#E2E6EE', '#EEE2E0'];
+  var COLOR_NAMES = ['אפור', 'חול', 'כחול בהיר', 'ורוד עדין'];
+  var KINDS = [['flight', 'טיסה'], ['stay', 'לינה'], ['fun', 'אטרקציה'], ['other', 'אחר']];
+  var KIND_LABEL = { flight: 'טיסה', stay: 'לינה', fun: 'אטרקציה', other: 'אחר' };
+  var CATS = [
+    ['restaurants', 'מסעדות'],
+    ['gas stations', 'תחנות דלק'],
+    ['supermarkets', 'סופרמרקטים'],
+    ['cafes', 'בתי קפה'],
+    ['pharmacies', 'בתי מרקחת'],
+    ['parking', 'חניונים']
+  ];
+  var ROUND = 10;
+  var QUESTION_SEC = 40;
+  var STORAGE_KEY = 'family_trip_app_v2_light';
+
+  var TQ = [
+    { cat: 'כדורגל', q: 'איזו מדינה זכתה במונדיאל 2022?', o: ['צרפת', 'ארגנטינה', 'קרואטיה', 'ברזיל'], a: 1 },
+    { cat: 'כדורגל', q: 'מי השחקן עם הכי הרבה כדורי זהב בהיסטוריה?', o: ['כריסטיאנו רונאלדו', 'מישל פלטיני', 'ליונל מסי', 'יוהאן קרויף'], a: 2 },
+    { cat: 'אולימפיאדה', q: 'באיזו עיר נערכה אולימפיאדת הקיץ של 2016?', o: ['לונדון', 'ריו דה ז׳נירו', 'בייג׳ינג', 'טוקיו'], a: 1 },
+    { cat: 'טניס', q: 'כמה תארי גרנד סלאם ביחידים זכה בהם רפאל נדאל?', o: ['20', '22', '24', '18'], a: 1 },
+    { cat: 'כדורסל', q: 'עם איזו קבוצה זכה מייקל ג׳ורדן בשש אליפויות NBA?', o: ['לוס אנג׳לס לייקרס', 'בוסטון סלטיקס', 'שיקגו בולס', 'דטרויט פיסטונס'], a: 2 },
+    { cat: 'כדורגל', q: 'איזו מדינה זכתה בהכי הרבה גביעי עולם בגברים?', o: ['גרמניה', 'איטליה', 'ארגנטינה', 'ברזיל'], a: 3 },
+    { cat: 'ספורט ישראלי', q: 'כמה פעמים זכתה מכבי תל אביב ביורוליג בכדורסל?', o: ['4', '5', '6', '7'], a: 2 },
+    { cat: 'כדורגל', q: 'באיזה מונדיאל הבקיע מראדונה את ״יד האלוהים״?', o: ['1982', '1986', '1990', '1994'], a: 1 },
+    { cat: 'אתלטיקה', q: 'מי מחזיק בשיא העולם ב-100 מטר גברים?', o: ['טייסון גיי', 'יוהאן בלייק', 'יוסיין בולט', 'אסאפה פאוול'], a: 2 },
+    { cat: 'אתלטיקה', q: 'מה אורכו המדויק של מרתון?', o: ['40 ק״מ', '42.195 ק״מ', '45 ק״מ', '38.5 ק״מ'], a: 1 },
+    { cat: 'טניס', q: 'על איזה משטח משחקים ברולאן גארוס?', o: ['דשא', 'מגרש קשיח', 'חימר', 'פרקט'], a: 2 },
+    { cat: 'ספורט ישראלי', q: 'באיזו שנה זכה גל פרידמן במדליית זהב אולימפית בגלישת רוח?', o: ['2000', '2004', '2008', '2012'], a: 1 },
+    { cat: 'ספורט ישראלי', q: 'באיזה ענף זכתה לינוי אשרם בזהב אולימפי?', o: ['התעמלות אמנותית', 'שחייה', 'ג׳ודו', 'התעמלות מכשירים'], a: 0 },
+    { cat: 'כדורגל', q: 'באיזו מדינה נערך מונדיאל 2018?', o: ['רוסיה', 'ברזיל', 'קטאר', 'גרמניה'], a: 0 },
+    { cat: 'כדורגל', q: 'מי היה מלך השערים של מונדיאל 2022?', o: ['ליונל מסי', 'קיליאן אמבפה', 'אוליבייה ז׳ירו', 'חוליאן אלברס'], a: 1 },
+    { cat: 'כדורגל', q: 'איזו קבוצה זכתה בליגת האלופות הכי הרבה פעמים?', o: ['ברצלונה', 'מילאן', 'ריאל מדריד', 'ליברפול'], a: 2 },
+    { cat: 'כדורסל', q: 'איזו קבוצה זכתה באליפות ה-NBA ב-2023?', o: ['מיאמי היט', 'דנבר נאגטס', 'בוסטון סלטיקס', 'גולדן סטייט ווריורס'], a: 1 },
+    { cat: 'כדורסל', q: 'מי מחזיק בשיא הנקודות בכל הזמנים ב-NBA?', o: ['קארים עבדול ג׳אבר', 'מייקל ג׳ורדן', 'לברון ג׳יימס', 'קארל מאלון'], a: 2 },
+    { cat: 'טניס', q: 'על איזה משטח משחקים בווימבלדון?', o: ['חימר', 'דשא', 'מגרש קשיח', 'פרקט'], a: 1 },
+    { cat: 'פורמולה 1', q: 'איזו קבוצה מזוהה עם הצבע האדום ועם הסוס הקופץ?', o: ['מקלארן', 'מרצדס', 'פרארי', 'רד בול'], a: 2 }
+  ];
+
+  function optOrder(qi) {
+    var a = [0, 1, 2, 3], x = Math.imul(qi + 1, 2654435761) >>> 0, i, j, t;
+    for (i = 3; i > 0; i--) {
+      x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
+      j = x % (i + 1);
+      t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  var PERM = null;
+  function qIndex(p, uid) {
+    var i;
+    if (!PERM || PERM.length !== TQ.length) {
+      var h = 2166136261, str = String(uid || 'family');
+      for (i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+      var a = h >>> 0;
+      var rnd = function () {
+        a = (a + 0x6D2B79F5) | 0;
+        var t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      PERM = TQ.map(function (_, k) { return k; });
+      for (i = PERM.length - 1; i > 0; i--) {
+        var j = Math.floor(rnd() * (i + 1)), x = PERM[i];
+        PERM[i] = PERM[j]; PERM[j] = x;
+      }
+    }
+    return PERM[(p.round * ROUND + p.q) % PERM.length];
+  }
+
+  var S = {
+    uid: 'me_user',
+    owner: true,
+    canWrite: true,
+    tab: 'home',
+    day: null,
+    filter: 'all',
+    mapMode: 'near',
+    cat: 'restaurants',
+    trip: null,
+    days: [],
+    stops: [],
+    tickets: [],
+    members: {},
+    locs: {},
+    scores: {},
+    prog: null,
+    geo: '',
+    tv: 'lobby',
+    tvSec: QUESTION_SEC,
+    sos: {},
+    sosAsk: false,
+    sosBusy: false,
+    gopen: {},
+    ob: { step: 0, name: '', color: 0, loc: '' },
+    resetScroll: false
+  };
+
+  var raf = 0, sheetCfg = null, watchId = null, lastPush = 0, pushBusy = false;
+  var tvInterval = null, tvAdvanceTimeout = null;
+
+  var newId = function () { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); };
+
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      var d = JSON.parse(raw);
+      S.trip = d.trip || null;
+      S.days = Array.isArray(d.days) ? d.days : [];
+      S.stops = Array.isArray(d.stops) ? d.stops : [];
+      S.tickets = Array.isArray(d.tickets) ? d.tickets : [];
+      S.members = d.members || {};
+      S.locs = d.locs || {};
+      S.scores = d.scores || {};
+      S.prog = d.prog || null;
+      S.sos = d.sos || {};
+    } catch (e) {}
+  }
+
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        trip: S.trip,
+        days: S.days,
