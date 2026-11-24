@@ -155,7 +155,7 @@ const CATS = [
   ['parking', 'חניונים']
 ];
 const ROUND = 10;
-const QUESTION_SEC = 40;
+const QUESTION_SEC = 35;
 const LOCAL_USER_KEY = 'family_trip_uid_v1';
 const LOCAL_LOCK_KEY = 'family_trip_profile_locked_v1';
 
@@ -247,6 +247,7 @@ const S = {
   locs: {},
   scores: {},
   prog: null,
+  tvGame: null,
   geo: '',
   tv: 'lobby',
   tvSec: QUESTION_SEC,
@@ -276,6 +277,7 @@ onValue(ROOM_REF, snap => {
   S.locs = d.locs || {};
   S.scores = d.scores || {};
   S.prog = (d.prog && d.prog[S.uid]) ? d.prog[S.uid] : S.prog;
+  S.tvGame = d.triviaGame || null;
   S.sos = d.sos || {};
   const myLoc = S.locs[S.uid];
   if (myLoc && myLoc.on && !watchId) startLocWatch(true);
@@ -897,107 +899,224 @@ function stopTriviaTimers() {
   if (tvAdvanceTimeout) { clearTimeout(tvAdvanceTimeout); tvAdvanceTimeout = null; }
 }
 
-function ensureProg() {
-  if (!S.prog) S.prog = { round: 0, q: 0, ans: null, ok: 0 };
-  return S.prog;
+function getTriviaSecLeft(g) {
+  if (!g || g.status !== 'play') return QUESTION_SEC;
+  if (g.ans !== null && g.ans !== undefined) return 0;
+  const elapsed = Math.floor((Date.now() - (g.turnStartedAt || Date.now())) / 1000);
+  return Math.max(0, QUESTION_SEC - elapsed);
 }
 
-function startTriviaQuestion() {
+function startNewSharedGame(resetScores = false) {
   stopTriviaTimers();
-  S.tv = 'play';
-  S.tvSec = QUESTION_SEC;
+  const order = Object.keys(S.members || {});
+  if (!order.length) { toast('אין משתתפים בקבוצה'); return; }
+  const round = (S.tvGame && typeof S.tvGame.round === 'number') ? S.tvGame.round + 1 : 0;
+  const game = {
+    status: 'play',
+    round,
+    q: 0,
+    turnIdx: 0,
+    order,
+    activeUid: order[0],
+    turnStartedAt: Date.now(),
+    ans: null,
+    lastResult: null,
+    roundPts: {}
+  };
+  const patch = { triviaGame: game };
+  if (resetScores) {
+    const zeroScores = {};
+    order.forEach(id => { zeroScores[id] = { pts: 0, ok: 0, tot: 0 }; });
+    patch.scores = zeroScores;
+  }
+  S.tvGame = game;
+  syncRoom(patch);
+  ensureSharedTimer();
   draw();
-  tvInterval = setInterval(() => {
-    const p = ensureProg();
-    if (p.ans !== null) { stopTriviaTimers(); return; }
-    S.tvSec--;
-    if (S.tvSec <= 0) {
-      S.tvSec = 0;
-      answerTrivia(-1);
-    } else {
-      draw();
-    }
-  }, 1000);
 }
 
-function answerTrivia(chosenOrigIdx) {
-  const p = ensureProg();
-  if (p.ans !== null) return;
-  stopTriviaTimers();
-  const qi = qIndex(p, S.trip?.id || 'family');
+function ensureSharedTimer() {
+  const g = S.tvGame;
+  if (!g || g.status !== 'play') {
+    stopTriviaTimers();
+    return;
+  }
+  if (!tvInterval) {
+    tvInterval = setInterval(() => {
+      const cur = S.tvGame;
+      if (!cur || cur.status !== 'play') { stopTriviaTimers(); return; }
+      const left = getTriviaSecLeft(cur);
+      if (left <= 0 && (cur.ans === null || cur.ans === undefined)) {
+        // Active player or host triggers timeout transition cleanly
+        if (cur.activeUid === S.uid || isGroupAdmin()) {
+          submitSharedAnswer(-1, true);
+        }
+      }
+      if (S.tab === 'trivia') draw();
+    }, 500);
+  }
+}
+
+function submitSharedAnswer(chosenOrigIdx, isTimeout = false) {
+  const g = S.tvGame;
+  if (!g || g.status !== 'play') return;
+  if (g.ans !== null && g.ans !== undefined) return;
+  if (!isTimeout && g.activeUid !== S.uid) {
+    toast('המתן לתור שלך');
+    return;
+  }
+
+  const activeId = g.activeUid;
+  const qi = qIndex({ round: g.round || 0, q: g.q || 0 }, S.trip?.id || 'family');
   const q = TQ[qi];
-  const isOk = chosenOrigIdx === q.a;
-  p.ans = chosenOrigIdx;
-  const prev = S.scores[S.uid] || { pts: 0, ok: 0, tot: 0 };
+  const isOk = !isTimeout && chosenOrigIdx === q.a;
+
+  const prev = S.scores[activeId] || { pts: 0, ok: 0, tot: 0 };
   const nextScore = isOk
     ? { pts: (prev.pts || 0) + 10, ok: (prev.ok || 0) + 1, tot: (prev.tot || 0) + 1 }
     : { pts: prev.pts || 0, ok: prev.ok || 0, tot: (prev.tot || 0) + 1 };
-  if (isOk) p.ok = (p.ok || 0) + 1;
-  S.scores[S.uid] = nextScore;
-  syncRoom({ [`scores/${S.uid}`]: nextScore, [`prog/${S.uid}`]: p });
+
+  const roundPts = { ...(g.roundPts || {}) };
+  if (isOk) roundPts[activeId] = (roundPts[activeId] || 0) + 10;
+
+  const updatedGame = {
+    ...g,
+    ans: chosenOrigIdx,
+    roundPts,
+    lastResult: {
+      uid: activeId,
+      ok: isOk,
+      timeout: isTimeout,
+      at: Date.now()
+    }
+  };
+  S.tvGame = updatedGame;
+  S.scores[activeId] = nextScore;
+  syncRoom({
+    triviaGame: updatedGame,
+    [`scores/${activeId}`]: nextScore
+  });
   draw();
+
+  clearTimeout(tvAdvanceTimeout);
   tvAdvanceTimeout = setTimeout(() => {
-    if (p.q + 1 >= ROUND) {
-      S.tv = 'done';
+    const latest = S.tvGame;
+    if (!latest || latest.status !== 'play' || latest.q !== g.q) return;
+    const validOrder = (latest.order || []).filter(id => S.members[id]);
+    const pool = validOrder.length ? validOrder : Object.keys(S.members || {});
+    if (latest.q + 1 >= ROUND || !pool.length) {
+      const doneGame = { ...latest, status: 'done', ans: null };
+      S.tvGame = doneGame;
+      syncRoom({ triviaGame: doneGame });
       draw();
     } else {
-      p.q++;
-      p.ans = null;
-      syncRoom({ [`prog/${S.uid}`]: p });
-      startTriviaQuestion();
+      const nextTurnIdx = ((latest.turnIdx || 0) + 1) % pool.length;
+      const nextGame = {
+        ...latest,
+        q: latest.q + 1,
+        turnIdx: nextTurnIdx,
+        order: pool,
+        activeUid: pool[nextTurnIdx],
+        turnStartedAt: Date.now(),
+        ans: null
+      };
+      S.tvGame = nextGame;
+      syncRoom({ triviaGame: nextGame });
+      draw();
     }
-  }, 1500);
+  }, 1800);
+}
+
+function stopSharedGame() {
+  stopTriviaTimers();
+  const ended = S.tvGame ? { ...S.tvGame, status: 'lobby', ans: null } : null;
+  S.tvGame = ended;
+  syncRoom({ triviaGame: ended });
+  draw();
 }
 
 function renderTrivia() {
-  const p = ensureProg();
+  const g = S.tvGame;
   const board = Object.entries(S.members)
     .map(([id, m]) => ({ id, m, sc: S.scores[id] || { pts: 0, ok: 0, tot: 0 } }))
     .sort((a, b) => b.sc.pts - a.sc.pts);
 
-  if (S.tv === 'play') {
-    const qi = qIndex(p, S.trip?.id || 'family');
+  if (g && g.status === 'play') {
+    ensureSharedTimer();
+    const qi = qIndex({ round: g.round || 0, q: g.q || 0 }, S.trip?.id || 'family');
     const q = TQ[qi];
     const order = optOrder(qi);
-    const pct = Math.max(0, Math.min(100, (S.tvSec / QUESTION_SEC) * 100));
+    const secLeft = getTriviaSecLeft(g);
+    const pct = Math.max(0, Math.min(100, (secLeft / QUESTION_SEC) * 100));
+    const isMyTurn = g.activeUid === S.uid;
+    const activeMember = S.members[g.activeUid] || { name: 'שחקן', color: 0 };
+    const answered = g.ans !== null && g.ans !== undefined;
 
     return `<div class="stack">
       <div class="topbar">
-        <button type="button" class="lnk" id="tv-pause">${svg('pause', 18)} השהה</button>
-        <div style="font-weight:700">שאלה ${p.q + 1} מתוך ${ROUND}</div>
-        <div class="time">${S.tvSec} שנ׳</div>
+        <button type="button" class="lnk" id="tv-pause">${svg('x', 18)} סיים משחק</button>
+        <div style="font-weight:700">שאלה ${(g.q || 0) + 1} מתוך ${ROUND}</div>
+        <div class="time" style="${secLeft <= 7 ? 'color:var(--bad)' : ''}">${secLeft} שנ׳</div>
       </div>
-      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="bar"><i style="width:${pct}%;${secLeft <= 7 ? 'background:var(--bad)' : ''}"></i></div>
+
+      <div class="card between" style="${isMyTurn ? 'border:2px solid var(--acc);background:var(--soft)' : ''}">
+        <div class="row">
+          ${av(activeMember)}
+          <div>
+            <div style="font-weight:700;font-size:17px">${isMyTurn ? 'התור שלך לענות!' : `התור של ${esc(activeMember.name)}`}</div>
+            <div class="small">${isMyTurn ? 'בחר תשובה לפני שייגמרו 35 השניות' : 'צופה בשאלה בזמן אמת • התור הבא יתחלף אוטומטית'}</div>
+          </div>
+        </div>
+      </div>
+
       <div class="card stack">
         <div class="small">${esc(q.cat)}</div>
         <div class="h2" style="font-size:22px;line-height:1.35">${esc(q.q)}</div>
         <div class="stack-s">
           ${order.map(origIdx => {
             let cls = 'opt';
-            if (p.ans !== null) {
+            if (answered) {
               if (origIdx === q.a) cls += ' ok';
-              else if (origIdx === p.ans) cls += ' no';
+              else if (origIdx === g.ans) cls += ' no';
             }
-            return `<button type="button" class="${cls}" data-ans="${origIdx}" ${p.ans !== null ? 'disabled' : ''}>
+            const disabled = answered || !isMyTurn;
+            return `<button type="button" class="${cls}" data-ans="${origIdx}" ${disabled ? 'disabled' : ''}>
               <span>${esc(q.o[origIdx])}</span>
             </button>`;
           }).join('')}
         </div>
+        ${answered ? `<div class="${g.lastResult?.ok ? 'note' : 'warn'}">
+          ${g.lastResult?.timeout
+            ? `נגמר הזמן של ${esc(activeMember.name)}! עוברים לשאלה ולשחקן הבא...`
+            : g.lastResult?.ok
+              ? `תשובה נכונה! +10 נק׳ ל-${esc(activeMember.name)}. עוברים לשחקן הבא...`
+              : `טעות של ${esc(activeMember.name)}. עוברים לשאלה ולשחקן הבא...`}
+        </div>` : ''}
+      </div>
+
+      <div class="card stack-s">
+        <div class="h2">ניקוד חי במשחק</div>
+        ${board.map((b, idx) => `<div class="between">
+          <div class="row">${av(b.m)} <span>${idx + 1}. ${esc(b.m.name)} ${b.id === g.activeUid ? '• בתור' : ''}</span></div>
+          <strong>${b.sc.pts} נק׳</strong>
+        </div>`).join('')}
       </div>
     </div>`;
   }
 
-  if (S.tv === 'done') {
+  if (g && g.status === 'done') {
+    const winner = board[0];
     return `<div class="stack">
       <div class="topbar">
-        <button type="button" class="lnk" id="tv-back">${svg('back', 18)} חזרה</button>
-        <div style="font-weight:700">סיום סיבוב</div>
+        <button type="button" class="lnk" id="tv-back">${svg('back', 18)} לובי</button>
+        <div style="font-weight:700">סיום סיבוב משותף</div>
         <span></span>
       </div>
       <div class="card stack" style="text-align:center">
-        <h1 class="h1">כל הכבוד!</h1>
-        <div class="sub">ענית נכון על ${p.ok} מתוך ${ROUND} שאלות בסיבוב זה.</div>
-        <button type="button" class="btn" id="tv-next-round">סיבוב נוסף</button>
+        <h1 class="h1">${winner ? `המנצח: ${esc(winner.m.name)}!` : 'הסיבוב הסתיים!'}</h1>
+        <div class="sub">כל השחקנים שיחקו בתורות של 35 שניות לשאלה.</div>
+        <button type="button" class="btn" id="tv-next-round">סיבוב חדש לכולם</button>
       </div>
       <div class="card stack-s">
         <div class="h2">טבלת המובילים</div>
@@ -1017,15 +1136,18 @@ function renderTrivia() {
     </div>
     <div>
       <h1 class="h1">טריוויה משפחתית</h1>
-      <div class="sub">שאלות ספורט לנסיעות וזמן המתנה</div>
+      <div class="sub">משחק תורות חי אחד נגד השני • 35 שניות לכל שחקן</div>
     </div>
     <div class="card stack">
-      <div class="h2">סיבוב ${p.round + 1}</div>
-      <div class="small">${p.q > 0 ? `הגעת לשאלה ${p.q + 1} מתוך ${ROUND}` : `${ROUND} שאלות מהירות, 10 נקודות לכל תשובה נכונה.`}</div>
-      <button type="button" class="btn" id="tv-start">${p.q > 0 ? 'המשך סיבוב' : 'התחל לשחק'}</button>
+      <div class="h2">משחק תורות קבוצתי (${board.length} משתתפים)</div>
+      <div class="small">כל שאלה מוקצית לשחקן אחר לפי הסדר למשך 35 שניות. לאחר מענה או סיום הזמן, השאלה והתור עוברים אוטומטית לשחקן הבא אצל כולם.</div>
+      <button type="button" class="btn" id="tv-start">התחל משחק משותף</button>
     </div>
     <div class="card stack-s">
-      <div class="h2">טבלת ניקוד</div>
+      <div class="between">
+        <div class="h2">טבלת ניקוד כללית</div>
+        ${isGroupAdmin() ? `<button type="button" class="lnk" id="tv-reset-scores" style="color:var(--bad)">אפס ניקוד</button>` : ''}
+      </div>
       ${board.map((b, idx) => `<div class="between">
         <div class="row">${av(b.m)} <span>${idx + 1}. ${esc(b.m.name)}</span></div>
         <strong>${b.sc.pts} נק׳</strong>
@@ -1390,19 +1512,10 @@ document.addEventListener('click', e => {
     return;
   }
 
-  if (el.id === 'tv-start') { startTriviaQuestion(); return; }
-  if (el.id === 'tv-pause' || el.id === 'tv-back') { stopTriviaTimers(); S.tv = 'lobby'; draw(); return; }
-  if (el.dataset.ans !== undefined) { answerTrivia(Number(el.dataset.ans)); return; }
-  if (el.id === 'tv-next-round') {
-    const p = ensureProg();
-    p.round++;
-    p.q = 0;
-    p.ans = null;
-    p.ok = 0;
-    syncRoom({ [`prog/${S.uid}`]: p });
-    startTriviaQuestion();
-    return;
-  }
+  if (el.id === 'tv-start' || el.id === 'tv-next-round') { startNewSharedGame(false); return; }
+  if (el.id === 'tv-reset-scores') { startNewSharedGame(true); return; }
+  if (el.id === 'tv-pause' || el.id === 'tv-back') { stopSharedGame(); return; }
+  if (el.dataset.ans !== undefined) { submitSharedAnswer(Number(el.dataset.ans), false); return; }
 
   if (el.id === 'edit-profile') { showProfileSheet(); return; }
   if (el.dataset.pCol !== undefined) {
