@@ -154,6 +154,7 @@ const CATS = [
   ['pharmacies', 'בתי מרקחת'],
   ['parking', 'חניונים']
 ];
+const APP_VERSION = 'v1.4.0';
 const ROUND = 10;
 const QUESTION_SEC = 35;
 const LOCAL_USER_KEY = 'family_trip_uid_v1';
@@ -1211,6 +1212,16 @@ function renderMore() {
     </div>
 
     <div class="card stack-s">
+      <div class="h2">גיבוי ושחזור נתונים</div>
+      <div class="small">שמור עותק מלא של המסלול, הכרטיסים, המשתתפים והניקוד לטלפון, או טען קובץ גיבוי שמור.</div>
+      <div class="row">
+        <button type="button" class="btn2" style="flex:1" id="backup-download">הורד גיבוי לטלפון</button>
+        <button type="button" class="btn2" style="flex:1" id="backup-restore-btn">שחזר גיבוי מהטלפון</button>
+      </div>
+      <input type="file" id="backup-file-input" accept=".json,application/json" style="display:none">
+    </div>
+
+    <div class="card stack-s">
       <div class="h2">חירום (SOS)</div>
       <div class="small">שולח התראה בולטת לכל בני המשפחה עם המיקום האחרון שלך.</div>
       ${mySos ? `<button type="button" class="btn2 danger" data-sos-clear="${esc(S.uid)}">בטל התראת SOS פעילה</button>`
@@ -1223,6 +1234,8 @@ function renderMore() {
         </div>`
         : `<button type="button" class="btn2 danger" id="sos-trigger">הפעל התראת SOS</button>`}
     </div>
+
+    <div class="small" style="text-align:center;padding-top:4px">גרסת אפליקציה: <strong>${APP_VERSION}</strong></div>
   </div>`;
 }
 
@@ -1574,6 +1587,37 @@ document.addEventListener('click', e => {
     return;
   }
 
+  if (el.id === 'backup-download') {
+    const payload = {
+      appVersion: APP_VERSION,
+      exportedAt: new Date().toISOString(),
+      trip: S.trip || null,
+      days: S.days || [],
+      stops: S.stops || [],
+      tickets: S.tickets || [],
+      members: S.members || {},
+      scores: S.scores || {}
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateTag = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `tripapp-backup-${APP_VERSION}-${dateTag}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast(`קובץ גיבוי (${APP_VERSION}) ירד לטלפון`);
+    return;
+  }
+
+  if (el.id === 'backup-restore-btn') {
+    const inp = $('#backup-file-input');
+    if (inp) { inp.value = ''; inp.click(); }
+    return;
+  }
+
   if (el.dataset.sosClear) {
     const k = el.dataset.sosClear;
     delete S.sos[k];
@@ -1581,6 +1625,42 @@ document.addEventListener('click', e => {
     draw();
     toast('התראת ה-SOS נסגרה');
     return;
+  }
+});
+
+document.addEventListener('change', e => {
+  if (e.target && e.target.id === 'backup-file-input') {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(String(reader.result || '{}'));
+        if (!data || typeof data !== 'object' || (!data.trip && !Array.isArray(data.days) && !data.members)) {
+          toast('קובץ הגיבוי אינו תקין');
+          return;
+        }
+        const patch = {};
+        if ('trip' in data) { S.trip = data.trip || null; patch.trip = S.trip; }
+        if (Array.isArray(data.days)) { S.days = data.days; patch.days = S.days; }
+        if (Array.isArray(data.stops)) { S.stops = data.stops; patch.stops = S.stops; }
+        if (Array.isArray(data.tickets)) { S.tickets = data.tickets; patch.tickets = S.tickets; }
+        if (data.members && typeof data.members === 'object') {
+          S.members = { ...S.members, ...data.members };
+          patch.members = S.members;
+        }
+        if (data.scores && typeof data.scores === 'object') {
+          S.scores = { ...S.scores, ...data.scores };
+          patch.scores = S.scores;
+        }
+        syncRoom(patch);
+        draw();
+        toast(`הגיבוי שוחזר בהצלחה${data.appVersion ? ' (' + data.appVersion + ')' : ''}`);
+      } catch (err) {
+        toast('שגיאה בקריאת קובץ הגיבוי');
+      }
+    };
+    reader.readAsText(file);
   }
 });
 
