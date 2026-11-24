@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl" data-theme="light">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>הטיול המשפחתי</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -26,14 +26,15 @@
 }
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 *,*::before,*::after{box-sizing:inherit}
-html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:'Heebo',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
-button,input,select{font-family:inherit;font-size:16px;color:inherit}
+html{height:100%;width:100%;max-width:100vw;overflow-x:hidden;scroll-padding-top:env(safe-area-inset-top,0px);touch-action:manipulation}
+body{margin:0;height:100%;width:100%;max-width:100vw;overflow-x:hidden;background:var(--bg);color:var(--ink);font-family:'Heebo',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%;touch-action:pan-y}
+button,input,select{font-family:inherit;font-size:16px;color:inherit;max-width:100%}
 button{cursor:pointer}
-a{text-decoration:none;color:inherit}
+a{text-decoration:none;color:inherit;max-width:100%}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-#app{height:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column}
-#view{flex:1;min-height:0;overflow-y:auto;padding:20px 20px 28px}
+#app{height:100%;width:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;overflow-x:hidden}
+#view{flex:1;min-height:0;width:100%;max-width:100%;overflow-y:auto;overflow-x:hidden;padding:20px 20px 28px;touch-action:pan-y}
+.card,.hero,.sh,.tab-link,.opt{max-width:100%;overflow-wrap:break-word;word-wrap:break-word}
 #nav{flex:none;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 6px 8px}
 #nav button{flex:1;min-height:56px;border:0;background:transparent;color:var(--mut);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:13px;font-weight:600;border-radius:12px}
 #nav button.on{color:var(--acc);background:var(--soft)}
@@ -154,7 +155,7 @@ const CATS = [
   ['pharmacies', 'בתי מרקחת'],
   ['parking', 'חניונים']
 ];
-const APP_VERSION = 'v1.7.0';
+const APP_VERSION = 'v1.8.0';
 const ROUND = 10;
 const QUESTION_SEC = 35;
 const LOCAL_USER_KEY = 'family_trip_uid_v1';
@@ -2259,7 +2260,7 @@ function renderDay(dayId) {
 
 function initFindMyMap() {
   const el = document.getElementById('findmy-map');
-  if (!el || typeof L === 'undefined') return;
+  if (!el || typeof L === 'undefined' || !el.isConnected) return;
   if (findMyMap) {
     findMyMap.remove();
     findMyMap = null;
