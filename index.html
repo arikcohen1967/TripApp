@@ -155,12 +155,44 @@ const CATS = [
   ['pharmacies', 'בתי מרקחת'],
   ['parking', 'חניונים']
 ];
-const APP_VERSION = 'v1.8.0';
+const APP_VERSION = 'v1.9.0';
 const ROUND = 10;
 const QUESTION_SEC = 35;
 const LOCAL_USER_KEY = 'family_trip_uid_v1';
 const LOCAL_LOCK_KEY = 'family_trip_profile_locked_v1';
 const LOCAL_NAME_KEY = 'family_trip_name_v1';
+const OFFLINE_CACHE_KEY = 'family_trip_offline_cache_v1';
+let lastCloudSyncAt = 0;
+
+function saveOfflineCache() {
+  try {
+    const snap = {
+      savedAt: Date.now(),
+      trip: S.trip || null,
+      days: S.days || [],
+      stops: S.stops || [],
+      tickets: S.tickets || [],
+      members: S.members || {},
+      locs: S.locs || {},
+      scores: S.scores || {},
+      checkins: S.checkins || {},
+      tvGame: S.tvGame || null
+    };
+    localStorage.setItem(OFFLINE_CACHE_KEY, JSON.stringify(snap));
+  } catch (_) {}
+}
+
+function loadOfflineCache() {
+  try {
+    const raw = localStorage.getItem(OFFLINE_CACHE_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (!p || typeof p !== 'object') return null;
+    return p;
+  } catch (_) {
+    return null;
+  }
+}
 
 function isEricName(name) {
   const n = String(name || '').trim().toLowerCase();
@@ -1739,8 +1771,9 @@ function qIndex(p, seedStr) {
   return PERM[(p.round * ROUND + p.q) % PERM.length];
 }
 
+const _cached = loadOfflineCache();
 const S = {
-  loaded: false,
+  loaded: Boolean(_cached),
   uid,
   tab: 'home',
   day: null,
@@ -1755,6 +1788,7 @@ const S = {
   members: {},
   locs: {},
   scores: {},
+  checkins: {},
   prog: null,
   tvGame: null,
   geo: '',
@@ -1785,6 +1819,7 @@ onValue(ROOM_REF, snap => {
   S.members = d.members || {};
   S.locs = d.locs || {};
   S.scores = d.scores || {};
+  S.checkins = d.checkins || {};
   S.tvGame = d.triviaGame || null;
   S.sos = d.sos || {};
 
@@ -1812,6 +1847,8 @@ onValue(ROOM_REF, snap => {
   }
 
   S.prog = (d.prog && d.prog[S.uid]) ? d.prog[S.uid] : S.prog;
+  lastCloudSyncAt = Date.now();
+  saveOfflineCache();
   const myLoc = S.locs[S.uid];
   if (myLoc && myLoc.on && !watchId) startLocWatch(true);
   draw();
@@ -1822,6 +1859,7 @@ onValue(ROOM_REF, snap => {
 });
 
 function syncRoom(patch) {
+  saveOfflineCache();
   return update(ROOM_REF, patch).catch(e => {
     toast('לא ניתן לשמור לענן: ' + (e?.message || 'שגיאה'));
   });
@@ -1830,7 +1868,19 @@ function syncRoom(patch) {
 const draw = () => {
   if (!raf) raf = requestAnimationFrame(() => {
     raf = 0;
-    render();
+    if (_cached) {
+  if (_cached.trip) S.trip = _cached.trip;
+  if (Array.isArray(_cached.days)) S.days = _cached.days;
+  if (Array.isArray(_cached.stops)) S.stops = _cached.stops;
+  if (Array.isArray(_cached.tickets)) S.tickets = _cached.tickets;
+  if (_cached.members) S.members = _cached.members;
+  if (_cached.locs) S.locs = _cached.locs;
+  if (_cached.scores) S.scores = _cached.scores;
+  if (_cached.checkins) S.checkins = _cached.checkins;
+  if (_cached.tvGame) S.tvGame = _cached.tvGame;
+  if (_cached.savedAt) lastCloudSyncAt = _cached.savedAt;
+}
+render();
     if (S.resetScroll) { S.resetScroll = false; const v = $('#view'); if (v) v.scrollTop = 0; }
   });
 };
@@ -1908,6 +1958,33 @@ function nearUrl(cat, appName) {
   if (appName === 'google') return has ? `https://www.google.com/maps/search/?api=1&query=${q}&center=${l.lat},${l.lng}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
   return has ? `https://maps.apple.com/?q=${q}&sll=${l.lat},${l.lng}` : `https://maps.apple.com/?q=${q}`;
 }
+
+function getNearestStopFromMe() {
+  const me = S.locs[S.uid];
+  if (!me || typeof me.lat !== 'number' || typeof me.lng !== 'number') return null;
+  let best = null;
+  for (const s of S.stops || []) {
+    if (typeof s.lat === 'number' && typeof s.lng === 'number') {
+      const km = calcDistKm(me.lat, me.lng, s.lat, s.lng);
+      const day = S.days.find(d => d.id === s.dayId);
+      if (!best || km < best.km) best = { stop: s, day, km };
+    }
+  }
+  return best;
+}
+
+function fmtStopDist(s) {
+  const me = S.locs[S.uid];
+  if (!me || typeof me.lat !== 'number' || typeof me.lng !== 'number') return '';
+  if (!s || typeof s.lat !== 'number' || typeof s.lng !== 'number') return '';
+  const km = calcDistKm(me.lat, me.lng, s.lat, s.lng);
+  const etaMin = Math.max(1, Math.round((km / 40) * 60));
+  if (km < 0.05) return 'ממש כאן';
+  if (km < 1) return `${Math.round(km * 1000)} מ׳ • ~${etaMin} דק׳`;
+  return `${km.toFixed(1)} ק״מ • ~${etaMin} דק׳`;
+}
+
+const CHECKIN_PRESETS = ['ברכב', 'בגלידה', 'אוכלים', 'במלון', 'בתור', 'מטיילים'];
 
 function nextStop() {
   const ds = sortedDays();
@@ -2167,9 +2244,42 @@ function renderHome() {
       </div>
     </div>
 
+    ${(() => {
+      const near = getNearestStopFromMe();
+      if (!near) return '';
+      return `<div class="card stack-s">
+        <div class="between">
+          <div>
+            <div class="small">תחנה קרובה אליי • ${esc(near.day?.title || '')}</div>
+            <div class="h2">${esc(near.stop.title)}</div>
+            <div class="small">${esc(fmtStopDist(near.stop))}${near.stop.place ? ' • ' + esc(near.stop.place) : ''}</div>
+          </div>
+          <a class="mini p" href="${navUrl(near.stop, 'waze')}" target="_blank" rel="noopener noreferrer">Waze</a>
+        </div>
+      </div>`;
+    })()}
+
+    <div class="card stack-s">
+      <div class="between">
+        <div class="h2">צ׳ק-אין מהיר • איפה אני עכשיו?</div>
+        ${S.checkins[S.uid]?.status ? `<button type="button" class="lnk" id="clear-checkin">נקה</button>` : ''}
+      </div>
+      <div class="chips">
+        ${CHECKIN_PRESETS.map(lbl => {
+          const curSt = S.checkins[S.uid]?.status === lbl;
+          return `<button type="button" class="chip ${curSt ? 'on' : ''}" data-checkin="${esc(lbl)}">${esc(lbl)}</button>`;
+        }).join('')}
+      </div>
+    </div>
+
     <div class="row">
       <button type="button" class="btn2" style="flex:1" data-tab="tickets">${svg('ticket', 18)} כרטיסים (${S.tickets.length})</button>
       <button type="button" class="btn2" style="flex:1" data-tab="trivia">טריוויה משפחתית</button>
+    </div>
+
+    <div class="small" style="text-align:center">
+      ${navigator.onLine ? 'מחובר לענן' : 'מצב לא מקוון (מטמון שמור)'}
+      ${lastCloudSyncAt ? ` • סנכרון אחרון: ${ago(lastCloudSyncAt)}` : ''}
     </div>
   </div>`;
 }
@@ -2243,7 +2353,7 @@ function renderDay(dayId) {
         </div>
         <div>
           <div class="h2">${esc(s.title)}</div>
-          ${s.place ? `<div class="small" style="margin-top:2px">${esc(s.place)}</div>` : ''}
+          ${(s.place || fmtStopDist(s)) ? `<div class="small" style="margin-top:2px">${s.place ? esc(s.place) : ''}${s.place && fmtStopDist(s) ? ' • ' : ''}${fmtStopDist(s) ? `<strong>${esc(fmtStopDist(s))}</strong>` : ''}</div>` : ''}
           ${s.note ? `<div style="font-size:15px;margin-top:6px">${esc(s.note)}</div>` : ''}
         </div>
         ${(s.place || coords(s)) ? `<div class="row" style="margin-top:4px">
@@ -2346,6 +2456,19 @@ function renderMap() {
         </div>
         <button type="button" class="sw ${myOn ? 'on' : ''}" id="toggle-loc" role="switch" aria-checked="${myOn}" aria-label="שיתוף מיקום"><i></i></button>
       </div>
+
+      <div class="card stack-s">
+        <div class="between">
+          <div class="h2">הסטטוס שלי עכשיו</div>
+          ${S.checkins[S.uid]?.status ? `<button type="button" class="lnk" id="clear-checkin">נקה</button>` : ''}
+        </div>
+        <div class="chips">
+          ${CHECKIN_PRESETS.map(lbl => {
+            const curSt = S.checkins[S.uid]?.status === lbl;
+            return `<button type="button" class="chip ${curSt ? 'on' : ''}" data-checkin="${esc(lbl)}">${esc(lbl)}</button>`;
+          }).join('')}
+        </div>
+      </div>
       ${S.geo ? `<div class="warn">${esc(S.geo)}</div>` : ''}
 
       <div id="findmy-map" class="card" style="height:300px;padding:0;overflow:hidden;z-index:1"></div>
@@ -2362,7 +2485,7 @@ function renderMap() {
               <div class="row">
                 ${av(m)}
                 <div>
-                  <div class="h2">${esc(m.name)} ${id === S.uid ? '(אני)' : ''}</div>
+                  <div class="h2">${esc(m.name)} ${id === S.uid ? '(אני)' : ''} ${S.checkins[id]?.status ? `<span class="time" style="font-size:14px">• ${esc(S.checkins[id].status)}</span>` : ''}</div>
                   <div class="small">
                     ${isLive ? `פעיל • ${ago(l.at)}` : has ? `מיקום אחרון • ${ago(l.at)}` : 'טרם שיתף מיקום'}
                     ${dist ? ` • <strong>${esc(dist)}</strong>` : ''}
@@ -3352,6 +3475,30 @@ document.addEventListener('click', e => {
   if (el.id === 'backup-restore-btn') {
     const inp = $('#backup-file-input');
     if (inp) { inp.value = ''; inp.click(); }
+    return;
+  }
+
+  if (el.dataset.checkin) {
+    const st = el.dataset.checkin;
+    const prevSt = S.checkins[S.uid]?.status;
+    const nextVal = prevSt === st ? null : { status: st, at: Date.now() };
+    if (nextVal) {
+      S.checkins[S.uid] = nextVal;
+      toast(`עודכן סטטוס: ${st}`);
+    } else {
+      delete S.checkins[S.uid];
+      toast('הסטטוס נוקה');
+    }
+    syncRoom({ [`checkins/${S.uid}`]: nextVal });
+    draw();
+    return;
+  }
+
+  if (el.id === 'clear-checkin') {
+    delete S.checkins[S.uid];
+    syncRoom({ [`checkins/${S.uid}`]: null });
+    draw();
+    toast('הסטטוס נוקה');
     return;
   }
 
