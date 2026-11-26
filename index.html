@@ -165,7 +165,7 @@ const CATS = [
   ['pharmacies', 'בתי מרקחת'],
   ['parking', 'חניונים']
 ];
-const APP_VERSION = 'v1.9.1';
+const APP_VERSION = 'v1.9.2';
 const ROUND = 10;
 const QUESTION_SEC = 35;
 const LOCAL_USER_KEY = 'family_trip_uid_v1';
@@ -1991,6 +1991,134 @@ function requestLivePositionOnce() {
   });
 }
 
+const POI_TAG_RULES = [
+  { keys: ['פיצה', 'פיצריה', 'פיצרייה', 'pizza', 'pizzeria'], tags: ['["amenity"="restaurant"]["cuisine"~"pizza",i]', '["amenity"="fast_food"]["cuisine"~"pizza",i]', '["name"~"pizza|פיצה",i]'], fallbackEn: 'pizza' },
+  { keys: ['תחנת דלק', 'דלק', 'תדלוק', 'gas', 'fuel', 'petrol', 'gas station', 'gas stations'], tags: ['["amenity"="fuel"]'], fallbackEn: 'fuel' },
+  { keys: ['מוסך', 'מוסכים', 'תיקון רכב', 'garage', 'car repair', 'mechanic', 'auto repair'], tags: ['["shop"="car_repair"]', '["amenity"="car_repair"]'], fallbackEn: 'car repair' },
+  { keys: ['מסעדה', 'מסעדות', 'אוכל', 'restaurant', 'restaurants'], tags: ['["amenity"="restaurant"]', '["amenity"="fast_food"]'], fallbackEn: 'restaurant' },
+  { keys: ['סופר', 'סופרמרקט', 'סופרמרקטים', 'מכולת', 'supermarket', 'supermarkets', 'grocery'], tags: ['["shop"="supermarket"]', '["shop"="convenience"]'], fallbackEn: 'supermarket' },
+  { keys: ['קפה', 'בית קפה', 'בתי קפה', 'cafe', 'cafes', 'coffee'], tags: ['["amenity"="cafe"]'], fallbackEn: 'cafe' },
+  { keys: ['בית מרקחת', 'בתי מרקחת', 'פארם', 'pharmacy', 'pharmacies', 'drugstore'], tags: ['["amenity"="pharmacy"]'], fallbackEn: 'pharmacy' },
+  { keys: ['חניה', 'חניון', 'חניונים', 'parking'], tags: ['["amenity"="parking"]'], fallbackEn: 'parking' },
+  { keys: ['גלידה', 'גלידריה', 'גלידרייה', 'ice cream', 'gelato'], tags: ['["amenity"="ice_cream"]', '["shop"="ice_cream"]'], fallbackEn: 'ice cream' },
+  { keys: ['מאפיה', 'מאפייה', 'לחם', 'bakery'], tags: ['["shop"="bakery"]'], fallbackEn: 'bakery' },
+  { keys: ['בר', 'פאב', 'bar', 'pub'], tags: ['["amenity"="bar"]', '["amenity"="pub"]'], fallbackEn: 'bar' },
+  { keys: ['מלון', 'לינה', 'צימר', 'hotel', 'lodging'], tags: ['["tourism"="hotel"]', '["tourism"="guest_house"]'], fallbackEn: 'hotel' },
+  { keys: ['כספומט', 'בנק', 'atm', 'bank'], tags: ['["amenity"="atm"]', '["amenity"="bank"]'], fallbackEn: 'atm' },
+  { keys: ['בית חולים', 'מרפאה', 'קופת חולים', 'hospital', 'clinic'], tags: ['["amenity"="hospital"]', '["amenity"="clinic"]'], fallbackEn: 'clinic' }
+];
+
+function matchPoiRule(term) {
+  const norm = String(term || '').trim().toLowerCase();
+  if (!norm) return null;
+  for (const r of POI_TAG_RULES) {
+    if (r.keys.some(k => norm === k || norm.includes(k))) return r;
+  }
+  return null;
+}
+
+async function queryOverpassNearby(center, term, rule, signal) {
+  if (!center) return [];
+  const radius = 8000;
+  const escaped = term.replace(/["\\]/g, '');
+  let clauses = '';
+  if (rule && rule.tags && rule.tags.length) {
+    clauses = rule.tags.map(t => `nwr(around:${radius},${center.lat},${center.lng})${t};`).join('\n');
+  } else {
+    clauses = `nwr(around:${radius},${center.lat},${center.lng})["name"~"${escaped}",i];
+    nwr(around:${radius},${center.lat},${center.lng})["amenity"]["name"~"${escaped}",i];
+    nwr(around:${radius},${center.lat},${center.lng})["shop"]["name"~"${escaped}",i];`;
+  }
+  const ql = `[out:json][timeout:10];(\n${clauses}\n);out center 35;`;
+  const res = await fetch('https://overpass-api.de/api/interpreter', {
+    method: 'POST',
+    body: 'data=' + encodeURIComponent(ql),
+    signal
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const els = Array.isArray(data?.elements) ? data.elements : [];
+  return els.map((el, idx) => {
+    const lat = typeof el.lat === 'number' ? el.lat : el.center?.lat;
+    const lng = typeof el.lon === 'number' ? el.lon : el.center?.lon;
+    if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+    const tags = el.tags || {};
+    const name = tags['name:he'] || tags.name || tags['name:en'] || tags.brand || term;
+    const street = [tags['addr:street'], tags['addr:housenumber']].filter(Boolean).join(' ');
+    const city = tags['addr:city'] || tags['addr:suburb'] || '';
+    const subtitle = [street, city].filter(Boolean).join(', ');
+    const km = calcDistKm(center.lat, center.lng, lat, lng);
+    return {
+      id: `ov_${el.type}_${el.id || idx}`,
+      name,
+      subtitle,
+      type: tags.amenity || tags.shop || '',
+      lat,
+      lng,
+      km
+    };
+  }).filter(Boolean);
+}
+
+async function queryNominatimNearby(center, queryStr, signal) {
+  const params = new URLSearchParams({
+    q: queryStr,
+    format: 'jsonv2',
+    addressdetails: '1',
+    limit: '25'
+  });
+  if (center) {
+    const dLng = 0.14;
+    const dLat = 0.12;
+    const viewbox = `${(center.lng - dLng).toFixed(5)},${(center.lat + dLat).toFixed(5)},${(center.lng + dLng).toFixed(5)},${(center.lat - dLat).toFixed(5)}`;
+    params.set('viewbox', viewbox);
+    params.set('bounded', '1');
+  }
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+    signal,
+    headers: { 'Accept-Language': 'he,en' }
+  });
+  if (!res.ok) return [];
+  const raw = await res.json();
+  return (Array.isArray(raw) ? raw : []).map((item, idx) => {
+    const lat = parseFloat(item.lat);
+    const lng = parseFloat(item.lon);
+    if (isNaN(lat) || isNaN(lng)) return null;
+    const addr = item.address || {};
+    const name = item.name || (item.display_name || '').split(',')[0] || queryStr;
+    const street = [addr.road, addr.house_number].filter(Boolean).join(' ');
+    const city = addr.city || addr.town || addr.village || addr.suburb || addr.municipality || '';
+    const subtitle = [street, city].filter(Boolean).join(', ') || (item.display_name || '').split(',').slice(1, 3).join(',').trim();
+    const km = center ? calcDistKm(center.lat, center.lng, lat, lng) : null;
+    return {
+      id: `nom_${item.place_id || idx}`,
+      name,
+      subtitle,
+      type: item.type || item.category || '',
+      lat,
+      lng,
+      km
+    };
+  }).filter(Boolean);
+}
+
+function dedupeNearbyPois(list, center) {
+  const seen = [];
+  for (const item of list) {
+    if (!item || typeof item.lat !== 'number' || typeof item.lng !== 'number') continue;
+    const isDup = seen.some(prev => {
+      const sameCoords = calcDistKm(prev.lat, prev.lng, item.lat, item.lng) < 0.04;
+      const sameName = prev.name.trim().toLowerCase() === item.name.trim().toLowerCase() && calcDistKm(prev.lat, prev.lng, item.lat, item.lng) < 0.15;
+      return sameCoords || sameName;
+    });
+    if (!isDup) seen.push(item);
+  }
+  if (center) {
+    seen.sort((a, b) => (a.km ?? 99999) - (b.km ?? 99999));
+  }
+  return seen.slice(0, 25);
+}
+
 async function searchNearbyBusinesses(rawTerm) {
   const term = String(rawTerm || S.nearQuery || '').trim();
   if (!term) {
@@ -2002,6 +2130,7 @@ async function searchNearbyBusinesses(rawTerm) {
   S.nearErr = '';
   S.nearSearched = true;
   S.selectedPoi = null;
+  S.userPickedPoi = false;
   draw();
 
   if (nearSearchAbort) {
@@ -2017,58 +2146,22 @@ async function searchNearbyBusinesses(rawTerm) {
       if (fresh) center = fresh;
     }
 
-    const params = new URLSearchParams({
-      q: term,
-      format: 'jsonv2',
-      addressdetails: '1',
-      limit: '15'
-    });
+    const rule = matchPoiRule(term);
+    const queries = [queryNominatimNearby(center, term, ctrl.signal)];
+    if (rule && rule.fallbackEn && rule.fallbackEn.toLowerCase() !== term.toLowerCase()) {
+      queries.push(queryNominatimNearby(center, rule.fallbackEn, ctrl.signal));
+    }
     if (center) {
-      const dLng = 0.25;
-      const dLat = 0.22;
-      const viewbox = `${(center.lng - dLng).toFixed(5)},${(center.lat + dLat).toFixed(5)},${(center.lng + dLng).toFixed(5)},${(center.lat - dLat).toFixed(5)}`;
-      params.set('viewbox', viewbox);
-      params.set('bounded', '0');
+      queries.push(queryOverpassNearby(center, term, rule, ctrl.signal).catch(() => []));
     }
 
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
-      signal: ctrl.signal,
-      headers: { 'Accept-Language': 'he,en' }
-    });
-    if (!res.ok) throw new Error('שגיאה בשרת החיפוש');
-    const raw = await res.json();
+    const batches = await Promise.all(queries);
+    const merged = dedupeNearbyPois(batches.flat(), center);
 
-    const mapped = (Array.isArray(raw) ? raw : [])
-      .map((item, idx) => {
-        const lat = parseFloat(item.lat);
-        const lng = parseFloat(item.lon);
-        if (isNaN(lat) || isNaN(lng)) return null;
-        const addr = item.address || {};
-        const name = item.name || (item.display_name || '').split(',')[0] || term;
-        const street = [addr.road, addr.house_number].filter(Boolean).join(' ');
-        const city = addr.city || addr.town || addr.village || addr.suburb || addr.municipality || '';
-        const subtitle = [street, city].filter(Boolean).join(', ') || (item.display_name || '').split(',').slice(1, 3).join(',').trim();
-        const km = center ? calcDistKm(center.lat, center.lng, lat, lng) : null;
-        return {
-          id: String(item.place_id || idx),
-          name,
-          subtitle,
-          type: item.type || item.category || '',
-          lat,
-          lng,
-          km
-        };
-      })
-      .filter(Boolean);
-
-    if (center) {
-      mapped.sort((a, b) => (a.km ?? 99999) - (b.km ?? 99999));
-    }
-
-    S.nearResults = mapped;
+    S.nearResults = merged;
     S.nearBusy = false;
-    if (mapped.length) {
-      S.selectedPoi = mapped[0].id;
+    if (merged.length) {
+      S.selectedPoi = merged[0].id;
     } else {
       S.nearErr = 'לא נמצאו תוצאות מדויקות במפה הפנימית — אפשר לפתוח ישירות ב-Google Maps או Waze למטה.';
     }
@@ -2606,19 +2699,20 @@ function initNearMap() {
     `);
     marker.on('click', () => {
       S.selectedPoi = poi.id;
+      S.userPickedPoi = true;
     });
     nearMarkers[poi.id] = marker;
     bounds.push([poi.lat, poi.lng]);
   });
 
-  if (S.selectedPoi && nearMarkers[S.selectedPoi]) {
+  if (S.userPickedPoi && S.selectedPoi && nearMarkers[S.selectedPoi]) {
     const sel = (S.nearResults || []).find(p => p.id === S.selectedPoi);
     if (sel) {
       map.setView([sel.lat, sel.lng], 15);
       nearMarkers[S.selectedPoi].openPopup();
     }
   } else if (bounds.length > 1) {
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+    map.fitBounds(bounds, { padding: [36, 36], maxZoom: 15 });
   }
   nearMap = map;
 }
@@ -3424,6 +3518,7 @@ document.addEventListener('click', e => {
     const poi = (S.nearResults || []).find(p => p.id === pid);
     if (poi) {
       S.selectedPoi = pid;
+      S.userPickedPoi = true;
       if (nearMap) {
         nearMap.setView([poi.lat, poi.lng], 16);
         if (nearMarkers[pid]) nearMarkers[pid].openPopup();
@@ -3612,6 +3707,7 @@ document.addEventListener('click', e => {
     S.nearErr = '';
     S.nearSearched = false;
     S.selectedPoi = null;
+  S.userPickedPoi = false;
     draw();
     requestAnimationFrame(() => {
       const inp = $('#near-q-input');
