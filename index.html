@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{
   --bg:#F5F5F5;
@@ -102,6 +103,14 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .search-bar:focus-within{border-color:var(--acc);background:var(--card)}
 .search-bar input{flex:1;min-width:0;border:0;background:transparent;padding:8px 0;font-size:16px;outline:none}
 .search-clear{min-width:36px;min-height:36px;border:0;background:transparent;color:var(--mut);display:flex;align-items:center;justify-content:center;border-radius:10px}
+.scan-box{border:1.5px dashed var(--acc);background:var(--soft);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.scan-preview{width:100%;max-height:190px;object-fit:contain;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.ticket-thumb{width:100%;max-height:160px;object-fit:cover;border-radius:12px;border:1px solid var(--line);cursor:pointer}
+.ai-badge{display:inline-flex;align-items:center;gap:5px;background:var(--soft);color:var(--acc);padding:3px 9px;border-radius:99px;font-size:12px;font-weight:700}
+.voice-card{background:var(--card);border:1.5px solid var(--acc);border-radius:20px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 2px 8px rgba(37,99,235,.07)}
+.mic-btn{width:54px;height:54px;border-radius:50%;border:0;background:var(--acc);color:#FFFFFF;display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 4px 12px rgba(37,99,235,.28);transition:transform .15s ease,background .15s ease}
+.mic-btn.live{background:var(--bad);box-shadow:0 0 0 6px rgba(179,38,30,.18)}
+.siri-url{font-family:monospace;font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;direction:ltr;text-align:left;overflow-x:auto;white-space:nowrap;color:var(--ink)}
 @media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}}
 </style>
 </head>
@@ -147,7 +156,12 @@ const IC = {
   chev: '<path d="M15 6l-6 6 6 6"/>',
   pause: '<path d="M8 5v14M16 5v14"/>',
   x: '<path d="M6 6l12 12M18 6L6 18"/>',
-  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  cam: '<path d="M4 7h3l2-2h6l2 2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z"/><circle cx="12" cy="13" r="3.5"/>',
+  scan: '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/>',
+  vol: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>',
+  bolt: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>'
 };
 const svg = (n, s = 20) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
 
@@ -165,7 +179,7 @@ const CATS = [
   ['pharmacies', 'בתי מרקחת'],
   ['parking', 'חניונים']
 ];
-const APP_VERSION = 'v1.9.2';
+const APP_VERSION = 'v1.9.4';
 const ROUND = 10;
 const QUESTION_SEC = 35;
 const LOCAL_USER_KEY = 'family_trip_uid_v1';
@@ -1868,6 +1882,7 @@ onValue(ROOM_REF, snap => {
   const myLoc = S.locs[S.uid];
   if (myLoc && myLoc.on && !watchId) startLocWatch(true);
   draw();
+  executePendingDeepAction();
 }, err => {
   S.loaded = true;
   draw();
@@ -2477,6 +2492,17 @@ function renderHome() {
       </div>`;
     })()}
 
+    <div class="voice-card">
+      <div class="row" style="min-width:0;flex:1">
+        <button type="button" class="mic-btn" id="open-voice-copilot" aria-label="עוזר נסיעה קולי">${svg('mic', 22)}</button>
+        <div style="min-width:0;flex:1">
+          <div class="h2" style="font-size:17px">עוזר קולי וחיבור ל-Siri</div>
+          <div class="small">דבר לניווט, חיפוש עסקים או הפעלת מצב נהיגה</div>
+        </div>
+      </div>
+      <button type="button" class="mini o" id="quick-drive-mode" style="border-color:var(--acc);color:var(--acc)">${svg('bolt', 16)} מצב נהיגה</button>
+    </div>
+
     <div class="card stack-s">
       <div class="between">
         <div class="h2">צ׳ק-אין מהיר • איפה אני עכשיו?</div>
@@ -2855,6 +2881,236 @@ function renderMap() {
   </div>`;
 }
 
+const GEMINI_KEY_STORAGE = 'family_trip_gemini_key_v1';
+let scanState = {
+  busy: false,
+  status: '',
+  progress: 0,
+  previewUrl: '',
+  rawText: '',
+  lastImgData: ''
+};
+
+function compressImageToDataUrl(file, maxDim = 960, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          else { w = Math.round((w * maxDim) / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = String(reader.result || '');
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function parseTicketTextSmart(rawText) {
+  const txt = String(rawText || '').replace(/\r/g, '');
+  const lines = txt.split('\n').map(l => l.trim()).filter(Boolean);
+  const full = lines.join(' | ');
+  const low = txt.toLowerCase();
+
+  // 1. Detect kind
+  let kind = 'other';
+  if (/flight|airline|boarding|gate|pnr|el al|israir|arkia|wizz|ryanair|easyjet|lufthansa|ita airways|טיסה|שער|בורדינג|כרטיס עלייה|אל על|ישראייר|ארקיע/i.test(low)) {
+    kind = 'flight';
+  } else if (/hotel|resort|agriturismo|booking\.com|airbnb|check-in|check in|room|night|מלון|לינה|אירוח|צ׳ק אין|חדר|וילה|דירה/i.test(low)) {
+    kind = 'stay';
+  } else if (/ticket|admission|park|gardaland|movieland|museum|cable car|funivia|voucher|entry|pass|כרטיס|כניסה|פארק|מוזיאון|רכבל|אטרקציה|שובר/i.test(low)) {
+    kind = 'fun';
+  }
+
+  // 2. Extract booking / confirmation / PNR code
+  let code = '';
+  const codePatterns = [
+    /(?:booking|confirmation|reservation|reference|ref|order|pnr|ticket|voucher|קוד|הזמנה|אסמכתא|מספר הזמנה)[^A-Z0-9א-ת]{0,12}([A-Z0-9]{5,12})/i,
+    /\b([A-Z]{2,3}\d{3,5})\b/,
+    /\b([A-Z0-9]{6})\b/
+  ];
+  const stopWords = new Set(['FLIGHT', 'TICKET', 'BOOKING', 'HOTEL', 'GUESTS', 'ADULTS', 'TOTAL', 'PRICE', 'CHECK', 'PRINT', 'EMAIL', 'PHONE', 'VERONA', 'ITALY', 'ISRAEL', 'TERMINAL']);
+  for (const rx of codePatterns) {
+    const m = txt.match(rx);
+    if (m && m[1] && !stopWords.has(m[1].toUpperCase()) && !/^\d{6}$/.test(m[1])) {
+      code = m[1].toUpperCase();
+      break;
+    }
+  }
+  if (!code) {
+    const numMatch = txt.match(/(?:order|booking|confirmation|הזמנה|אישור)[^0-9]{0,10}(\d{6,12})/i);
+    if (numMatch) code = numMatch[1];
+  }
+
+  // 3. Extract date & time
+  let datePart = '';
+  const dateRx = /(\b\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*\d{0,4}\b)/i;
+  const dm = txt.match(dateRx);
+  if (dm) datePart = dm[1].trim();
+
+  let timePart = '';
+  const timeRx = /(?:departure|depart|time|at|שעה|המראה|כניסה)?[^0-9]{0,6}\b([01]?\d|2[0-3]):([0-5]\d)\b/i;
+  const tm = txt.match(timeRx);
+  if (tm) timePart = `${tm[1].padStart(2, '0')}:${tm[2]}`;
+  const when = [datePart, timePart].filter(Boolean).join(' • ');
+
+  // 4. Extract URL if present
+  const urlMatch = txt.match(/https?:\/\/[^\s<>"']+/i);
+  const link = urlMatch ? urlMatch[0] : '';
+
+  // 5. Extract Title
+  let title = '';
+  const flightNo = txt.match(/\b([A-Z]{2}\s?\d{3,4})\b/);
+  if (kind === 'flight' && flightNo) {
+    title = `טיסה ${flightNo[1].replace(/\s+/, ' ')}`;
+  } else {
+    const cleanCandidate = lines.find(l => l.length >= 4 && l.length <= 48 && !/^https?:/i.test(l) && !/^(booking|confirmation|date|time|total|price|אישור|תאריך|שעה)/i.test(l));
+    title = cleanCandidate || (kind === 'flight' ? 'כרטיס טיסה' : kind === 'stay' ? 'אישור לינה / מלון' : kind === 'fun' ? 'כרטיס לאטרקציה' : 'אישור הזמנה');
+  }
+
+  // 6. Useful note summary
+  const noteLines = lines.filter(l => l !== title && !l.includes(link)).slice(0, 3);
+  const note = noteLines.join(' • ').slice(0, 140);
+
+  return { title, kind, when, code, link, note };
+}
+
+async function analyzeWithGeminiIfConfigured(dataUrl) {
+  const apiKey = (localStorage.getItem(GEMINI_KEY_STORAGE) || '').trim();
+  if (!apiKey) return null;
+  const base64 = dataUrl.split(',')[1];
+  if (!base64) return null;
+
+  const prompt = `אתה עוזר חכם באפליקציית טיולים משפחתית. נתח את התמונה של הכרטיס / אישור ההזמנה וחלץ JSON תקין בלבד (ללא markdown) עם השדות הבאים:
+{
+  "title": "כותרת ברורה בעברית (למשל: טיסת ישראייר לוורונה / מלון Bio Agriturismo / כרטיסים לגארדלנד)",
+  "kind": "flight" או "stay" או "fun" או "other",
+  "when": "תאריך ושעה בפורמט קצר כמו 30.09.2026 • 08:30",
+  "code": "מספר הזמנה / PNR / קוד כרטיס",
+  "link": "קישור אם מופיע בתמונה או מחרוזת ריקה",
+  "note": "פרטים חשובים בקצרה בעברית (שער, כתובת, מספר אורחים/מושבים)"
+}`;
+
+  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{
+        parts: [
+          { text: prompt },
+          { inlineData: { mimeType: 'image/jpeg', data: base64 } }
+        ]
+      }],
+      generationConfig: { responseMimeType: 'application/json' }
+    })
+  });
+  if (!resp.ok) throw new Error('Gemini API error');
+  const json = await resp.json();
+  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const parsed = JSON.parse(text);
+  if (!parsed || typeof parsed !== 'object') return null;
+  const validKinds = ['flight', 'stay', 'fun', 'other'];
+  return {
+    title: String(parsed.title || '').trim(),
+    kind: validKinds.includes(parsed.kind) ? parsed.kind : 'other',
+    when: String(parsed.when || '').trim(),
+    code: String(parsed.code || '').trim(),
+    link: String(parsed.link || '').trim(),
+    note: String(parsed.note || '').trim()
+  };
+}
+
+async function handleTicketImageScan(file, targetMode = 'new') {
+  if (!file) return;
+  scanState.busy = true;
+  scanState.progress = 10;
+  scanState.status = 'מעבד תמונה...';
+  if (targetMode === 'new') {
+    showTicketSheet(null, { scanning: true });
+  } else {
+    updateScanUiInSheet();
+  }
+
+  try {
+    const compressedUrl = await compressImageToDataUrl(file, 1024, 0.78);
+    const thumbUrl = await compressImageToDataUrl(file, 540, 0.55);
+    scanState.previewUrl = thumbUrl;
+    scanState.lastImgData = thumbUrl;
+    scanState.progress = 25;
+    scanState.status = 'AI מנתח את פרטי הכרטיס...';
+    updateScanUiInSheet();
+
+    let extracted = null;
+
+    // 1) Try Gemini Vision first if user saved an API key
+    try {
+      extracted = await analyzeWithGeminiIfConfigured(compressedUrl);
+    } catch (_) {
+      extracted = null;
+    }
+
+    // 2) Fallback / built-in on-device Tesseract OCR (Hebrew + English)
+    if (!extracted || !extracted.title) {
+      if (typeof Tesseract !== 'undefined') {
+        const res = await Tesseract.recognize(compressedUrl, 'eng+heb', {
+          logger: m => {
+            if (m && m.status === 'recognizing text' && typeof m.progress === 'number') {
+              scanState.progress = Math.round(30 + m.progress * 65);
+              scanState.status = `סורק טקסט מהכרטיס (${scanState.progress}%)...`;
+              updateScanUiInSheet();
+            }
+          }
+        });
+        const ocrText = res?.data?.text || '';
+        scanState.rawText = ocrText;
+        extracted = parseTicketTextSmart(ocrText);
+      } else {
+        extracted = { title: 'כרטיס סרוק', kind: 'other', when: '', code: '', link: '', note: '' };
+      }
+    }
+
+    scanState.busy = false;
+    scanState.progress = 100;
+    scanState.status = 'הסריקה הושלמה! בדוק ושמור';
+
+    if ($('#f-k-title') && extracted.title) $('#f-k-title').value = extracted.title;
+    if ($('#f-k-kind') && extracted.kind) $('#f-k-kind').value = extracted.kind;
+    if ($('#f-k-when') && extracted.when) $('#f-k-when').value = extracted.when;
+    if ($('#f-k-code') && extracted.code) $('#f-k-code').value = extracted.code;
+    if ($('#f-k-link') && extracted.link) $('#f-k-link').value = extracted.link;
+    if ($('#f-k-note') && extracted.note) $('#f-k-note').value = extracted.note;
+
+    updateScanUiInSheet();
+    toast('הפרטים חולצו מהתמונה! אפשר לערוך ולשמור');
+  } catch (err) {
+    scanState.busy = false;
+    scanState.status = 'לא הצלחנו לפענח אוטומטית — התמונה נשמרה, ניתן להשלים ידנית';
+    updateScanUiInSheet();
+    toast('התמונה צורפה, ניתן להשלים פרטים ידנית');
+  }
+}
+
+function updateScanUiInSheet() {
+  const box = $('#ticket-scan-status');
+  if (!box) return;
+  box.innerHTML = `
+    ${scanState.previewUrl ? `<img src="${scanState.previewUrl}" class="scan-preview" alt="תצוגה מקדימה של הכרטיס">` : ''}
+    ${scanState.status ? `<div class="small" style="color:var(--acc);font-weight:600">${esc(scanState.status)}</div>` : ''}
+    ${scanState.busy ? `<div class="bar"><i style="width:${scanState.progress}%"></i></div>` : ''}
+  `;
+}
+
 function renderTickets() {
   return `<div class="stack">
     <div class="between">
@@ -2862,19 +3118,39 @@ function renderTickets() {
         <h1 class="h1">כרטיסים והזמנות</h1>
         <div class="small">${S.tickets.length} פריטים שמורים</div>
       </div>
-      <button type="button" class="btn" id="add-ticket-btn" style="min-height:44px;padding:0 14px">${svg('plus', 18)} הוסף</button>
+      <div class="row" style="gap:8px">
+        <button type="button" class="btn2" id="scan-ticket-quick-btn" style="min-height:44px;padding:0 12px;border-color:var(--acc);color:var(--acc)">${svg('cam', 18)} סרוק AI</button>
+        <button type="button" class="btn" id="add-ticket-btn" style="min-height:44px;padding:0 14px">${svg('plus', 18)} הוסף</button>
+      </div>
+    </div>
+
+    <input type="file" id="ticket-camera-input" accept="image/*" style="display:none">
+
+    <div class="card between" style="background:var(--soft);border-color:rgba(37,99,235,.22)">
+      <div class="row" style="min-width:0;flex:1">
+        <div class="av" style="background:var(--acc);color:#FFFFFF">${svg('scan', 20)}</div>
+        <div style="min-width:0;flex:1">
+          <div class="h2" style="font-size:17px">סורק כרטיסים חכם (AI Vision)</div>
+          <div class="small">צלם כרטיס טיסה, אישור מלון או שובר אטרקציה — והפרטים יישלפו אוטומטית</div>
+        </div>
+      </div>
+      <button type="button" class="mini p" id="scan-ticket-card-btn">צלם / העלה</button>
     </div>
 
     ${!S.tickets.length ? `<div class="card stack-s">
       <div class="h2">אין כרטיסים שמורים</div>
-      <div class="small">שמור כאן מספרי טיסות, אישורי מלון, השכרת רכב וכרטיסים לאטרקציות.</div>
+      <div class="small">שמור כאן מספרי טיסות, אישורי מלון, השכרת רכב וכרטיסים לאטרקציות — ידנית או בסריקת מצלמה.</div>
     </div>` : `<div class="stack-s">
       ${S.tickets.map(t => `<article class="card stack-s">
         <div class="between">
-          <span class="small">${esc(KIND_LABEL[t.kind] || 'כרטיס')} ${t.when ? '• ' + esc(t.when) : ''}</span>
+          <div class="row" style="gap:8px">
+            <span class="small">${esc(KIND_LABEL[t.kind] || 'כרטיס')} ${t.when ? '• ' + esc(t.when) : ''}</span>
+            ${t.aiScanned ? `<span class="ai-badge">AI נסרק</span>` : ''}
+          </div>
           <button type="button" class="lnk" data-edit-ticket="${esc(t.id)}">ערוך</button>
         </div>
         <div class="h2">${esc(t.title)}</div>
+        ${t.imgData ? `<img src="${t.imgData}" class="ticket-thumb" data-view-ticket-img="${esc(t.id)}" alt="${esc(t.title)}">` : ''}
         ${t.code ? `<div class="between" style="background:var(--bg);padding:10px 14px;border-radius:12px">
           <span style="font-family:monospace;font-weight:700;font-size:17px">${esc(t.code)}</span>
           <button type="button" class="mini o" data-copy="${esc(t.code)}">העתק</button>
@@ -3349,6 +3625,13 @@ function renderMore() {
     </div>
 
     <div class="stack-s">
+      <button type="button" class="tab-link" id="open-siri-setup">
+        <div>
+          <div style="font-weight:700">חיבור ל-Siri ואוטומציות אייפון</div>
+          <div class="small">מצב נהיגה אוטומטי, פקודות קוליות וסיכום בוקר</div>
+        </div>
+        ${svg('chev', 18)}
+      </button>
       <button type="button" class="tab-link" data-tab="trivia">
         <div>
           <div style="font-weight:700">טריוויה משפחתית</div>
@@ -3447,10 +3730,44 @@ function showStopSheet(stopId) {
   `);
 }
 
-function showTicketSheet(ticketId) {
+function showTicketSheet(ticketId, opts = {}) {
   const t = ticketId ? S.tickets.find(x => x.id === ticketId) : null;
+  if (!opts.scanning) {
+    scanState = {
+      busy: false,
+      status: '',
+      progress: 0,
+      previewUrl: t?.imgData || '',
+      rawText: '',
+      lastImgData: t?.imgData || ''
+    };
+  }
+  const hasGeminiKey = Boolean((localStorage.getItem(GEMINI_KEY_STORAGE) || '').trim());
   openSheet(`
     <div class="between"><h2>${t ? 'עריכת כרטיס' : 'כרטיס חדש'}</h2><button type="button" class="lnk" id="sh-close">${svg('x')}</button></div>
+
+    <div class="scan-box">
+      <div class="between">
+        <div style="font-weight:700;font-size:15px">סריקה חכמה מתמונה / צילום מסך</div>
+        <button type="button" class="lnk" id="toggle-gemini-key-cfg" style="min-height:32px;font-size:13px">${hasGeminiKey ? 'מנוע Gemini פעיל ✓' : 'הגדר מפתח Gemini'}</button>
+      </div>
+      <div class="row">
+        <button type="button" class="mini p" style="flex:1" id="sheet-pick-cam">${svg('cam', 16)} צלם / בחר תמונה</button>
+      </div>
+      <div id="gemini-key-panel" style="display:none;flex-direction:column;gap:8px;padding-top:4px">
+        <div class="small">אופציונלי: הזן מפתח Google Gemini API לניתוח AI מתקדם במיוחד (ללא מפתח פועלת סריקת OCR מובנית במכשיר).</div>
+        <div class="row">
+          <input type="password" id="f-gemini-key" value="${esc(localStorage.getItem(GEMINI_KEY_STORAGE) || '')}" placeholder="AIzaSy..." style="flex:1;min-height:42px;border-radius:10px;border:1px solid var(--field);padding:0 10px;background:var(--card)">
+          <button type="button" class="mini p" id="save-gemini-key" style="min-height:42px">שמור</button>
+        </div>
+      </div>
+      <div id="ticket-scan-status">
+        ${scanState.previewUrl ? `<img src="${scanState.previewUrl}" class="scan-preview" alt="תצוגה מקדימה">` : ''}
+        ${scanState.status ? `<div class="small" style="color:var(--acc);font-weight:600">${esc(scanState.status)}</div>` : ''}
+        ${scanState.busy ? `<div class="bar"><i style="width:${scanState.progress}%"></i></div>` : ''}
+      </div>
+    </div>
+
     <label class="fld">כותרת<input id="f-k-title" value="${esc(t?.title || '')}" placeholder="לדוגמה: טיסת אל על הלוך"></label>
     <div class="row">
       <label class="fld" style="flex:1">סוג
@@ -3546,7 +3863,36 @@ document.addEventListener('click', e => {
   const el = e.target.closest('button, a');
   if (!el) return;
 
-  if (el.id === 'sh-ov' || el.id === 'sh-close') { closeSheet(); return; }
+  if (el.id === 'sh-ov' || el.id === 'sh-close') {
+    if (voiceState.listening && speechRec) { try { speechRec.stop(); } catch (_) {} voiceState.listening = false; }
+    closeSheet();
+    return;
+  }
+  if (el.id === 'open-voice-copilot') { showVoiceAssistantSheet(true); return; }
+  if (el.id === 'voice-sheet-mic') { startVoiceListening(); return; }
+  if (el.id === 'toggle-voice-speak') {
+    voiceState.speakEnabled = !voiceState.speakEnabled;
+    localStorage.setItem(VOICE_SPEAK_KEY, voiceState.speakEnabled ? '1' : '0');
+    el.textContent = voiceState.speakEnabled ? 'הקראה פעילה' : 'מושתק';
+    toast(voiceState.speakEnabled ? 'הקראה קולית הופעלה' : 'הקראה קולית הושתקה');
+    return;
+  }
+  if (el.dataset.voiceCmd) { processVoiceCommand(el.dataset.voiceCmd); return; }
+  if (el.id === 'quick-drive-mode') { activateDriveMode(true); return; }
+  if (el.id === 'open-siri-setup') { showSiriSetupSheet(); return; }
+  if (el.dataset.testSiri) {
+    closeSheet();
+    try {
+      const u = new URL(el.dataset.testSiri);
+      pendingDeepAction = {
+        action: (u.searchParams.get('action') || '').toLowerCase(),
+        q: u.searchParams.get('q') || '',
+        status: u.searchParams.get('status') || ''
+      };
+      executePendingDeepAction();
+    } catch (_) {}
+    return;
+  }
 
   if (el.dataset.obCol !== undefined) { S.ob.color = Number(el.dataset.obCol); draw(); return; }
   if (el.id === 'ob-next0') { if (S.ob.name.trim()) { S.ob.step = 1; draw(); } return; }
@@ -3729,25 +4075,62 @@ document.addEventListener('click', e => {
   }
 
   if (el.id === 'add-ticket-btn') { showTicketSheet(null); return; }
+  if (el.id === 'scan-ticket-quick-btn' || el.id === 'scan-ticket-card-btn' || el.id === 'sheet-pick-cam') {
+    const inp = $('#ticket-camera-input');
+    if (inp) { inp.value = ''; inp.click(); }
+    return;
+  }
+  if (el.id === 'toggle-gemini-key-cfg') {
+    const p = $('#gemini-key-panel');
+    if (p) p.style.display = p.style.display === 'none' ? 'flex' : 'none';
+    return;
+  }
+  if (el.id === 'save-gemini-key') {
+    const k = ($('#f-gemini-key')?.value || '').trim();
+    if (k) localStorage.setItem(GEMINI_KEY_STORAGE, k);
+    else localStorage.removeItem(GEMINI_KEY_STORAGE);
+    const p = $('#gemini-key-panel');
+    if (p) p.style.display = 'none';
+    toast(k ? 'מפתח Gemini נשמר במכשיר' : 'מפתח Gemini הוסר');
+    return;
+  }
+  if (el.dataset.viewTicketImg) {
+    const t = S.tickets.find(x => x.id === el.dataset.viewTicketImg);
+    if (t && t.imgData) {
+      openSheet(`
+        <div class="between"><h2>${esc(t.title)}</h2><button type="button" class="lnk" id="sh-close">${svg('x')}</button></div>
+        <img src="${t.imgData}" style="width:100%;border-radius:14px;border:1px solid var(--line)" alt="${esc(t.title)}">
+        ${t.code ? `<div class="between" style="background:var(--bg);padding:10px 14px;border-radius:12px">
+          <span style="font-family:monospace;font-weight:700;font-size:18px">${esc(t.code)}</span>
+          <button type="button" class="mini o" data-copy="${esc(t.code)}">העתק קוד</button>
+        </div>` : ''}
+      `);
+    }
+    return;
+  }
   if (el.dataset.editTicket) { showTicketSheet(el.dataset.editTicket); return; }
   if (el.id === 'save-ticket') {
     const id = el.dataset.id;
     const title = $('#f-k-title').value.trim();
     if (!title) { toast('נא להזין כותרת לכרטיס'); return; }
+    const existing = id ? S.tickets.find(x => x.id === id) : null;
+    const imgData = scanState.lastImgData || existing?.imgData || '';
     const payload = {
       title,
       kind: $('#f-k-kind').value,
       when: $('#f-k-when').value.trim(),
       code: $('#f-k-code').value.trim(),
       link: $('#f-k-link').value.trim(),
-      note: $('#f-k-note').value.trim()
+      note: $('#f-k-note').value.trim(),
+      imgData,
+      aiScanned: Boolean(scanState.lastImgData || existing?.aiScanned)
     };
-    if (id) {
-      const t = S.tickets.find(x => x.id === id);
-      if (t) Object.assign(t, payload);
+    if (id && existing) {
+      Object.assign(existing, payload);
     } else {
       S.tickets.push({ id: newId(), ...payload });
     }
+    scanState.lastImgData = '';
     syncRoom({ tickets: S.tickets });
     closeSheet();
     draw();
@@ -3905,6 +4288,14 @@ document.addEventListener('click', e => {
 });
 
 document.addEventListener('change', e => {
+  if (e.target && e.target.id === 'ticket-camera-input') {
+    const file = e.target.files && e.target.files[0];
+    if (file) {
+      const mode = $('#f-k-title') ? 'sheet' : 'new';
+      handleTicketImageScan(file, mode);
+    }
+    return;
+  }
   if (e.target && e.target.id === 'backup-file-input') {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -3939,6 +4330,460 @@ document.addEventListener('change', e => {
     reader.readAsText(file);
   }
 });
+
+
+// =========================================================
+// Siri Deep Links, iPhone Automations & Voice Co-Pilot (AI)
+// =========================================================
+const VOICE_SPEAK_KEY = 'family_trip_voice_speak_v1';
+let voiceState = {
+  listening: false,
+  transcript: '',
+  reply: '',
+  actionDone: '',
+  speakEnabled: localStorage.getItem(VOICE_SPEAK_KEY) !== '0'
+};
+let speechRec = null;
+let pendingDeepAction = null;
+
+function parseIncomingDeepLink() {
+  try {
+    const url = new URL(window.location.href);
+    const action = (url.searchParams.get('action') || '').trim().toLowerCase();
+    const q = (url.searchParams.get('q') || '').trim();
+    const status = (url.searchParams.get('status') || '').trim();
+    if (action) {
+      pendingDeepAction = { action, q, status };
+      // Clean URL query params without reloading so refresh won't re-trigger
+      url.searchParams.delete('action');
+      url.searchParams.delete('q');
+      url.searchParams.delete('status');
+      window.history.replaceState({}, '', url.pathname + url.hash);
+    }
+  } catch (_) {}
+}
+parseIncomingDeepLink();
+
+function speakHebrew(text) {
+  if (!voiceState.speakEnabled || !text || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(String(text));
+    u.lang = 'he-IL';
+    u.rate = 1.03;
+    window.speechSynthesis.speak(u);
+  } catch (_) {}
+}
+
+function getBaseAppUrl() {
+  try {
+    const u = new URL(window.location.href);
+    return `${u.origin}${u.pathname}`;
+  } catch (_) {
+    return 'https://tripapp.vercel.app/';
+  }
+}
+
+function activateDriveMode(withVoiceBrief = true) {
+  startLocWatch(true);
+  const nextVal = { status: 'ברכב', at: Date.now() };
+  S.checkins[S.uid] = nextVal;
+  syncRoom({ [`checkins/${S.uid}`]: nextVal });
+
+  const nx = nextStop();
+  let msg = 'מצב נהיגה הופעל. שיתוף המיקום פעיל והסטטוס עודכן לברכב.';
+  if (nx && nx.stop) {
+    msg += ` התחנה הבאה היא ${nx.stop.title}${nx.stop.time ? ' בשעה ' + nx.stop.time : ''}.`;
+  }
+  voiceState.reply = msg;
+  toast('מצב נהיגה הופעל • מיקום משותף + סטטוס "ברכב"');
+  if (withVoiceBrief) speakHebrew(msg);
+  draw();
+}
+
+function runMorningBriefing(withSpeech = true) {
+  const t = S.trip;
+  const ds = sortedDays();
+  const iso = new Date().toISOString().slice(0, 10);
+  const todayDay = ds.find(d => d.date === iso) || ds[0];
+  const nx = nextStop();
+  const msCount = Object.keys(S.members || {}).length;
+  const sharingCount = Object.keys(S.members || {}).filter(id => S.locs[id]?.on).length;
+
+  let parts = [];
+  const meName = S.members[S.uid]?.name || '';
+  parts.push(`בוקר טוב ${meName}.`);
+  if (t?.title) parts.push(`אנחנו בטיול ${t.title}.`);
+  if (todayDay) {
+    const dayStops = sortedStops(todayDay.id);
+    parts.push(`בתוכנית להיום (${todayDay.title || ''}) יש ${dayStops.length} תחנות.`);
+  }
+  if (nx && nx.stop) {
+    parts.push(`התחנה הבאה: ${nx.stop.title}${nx.stop.time ? ' בשעה ' + nx.stop.time : ''}.`);
+  }
+  parts.push(`${sharingCount} מתוך ${msCount} בני משפחה משתפים מיקום כרגע.`);
+
+  const summary = parts.join(' ');
+  voiceState.reply = summary;
+  S.tab = 'home';
+  S.day = null;
+  draw();
+  if (withSpeech) speakHebrew(summary);
+}
+
+function executePendingDeepAction() {
+  if (!pendingDeepAction || !S.loaded || !S.members[S.uid]) return;
+  const act = pendingDeepAction;
+  pendingDeepAction = null;
+
+  if (act.action === 'drive') {
+    S.tab = 'home';
+    activateDriveMode(true);
+    return;
+  }
+  if (act.action === 'search' || act.action === 'nearby') {
+    S.tab = 'map';
+    S.mapMode = 'near';
+    if (act.q) {
+      S.nearQuery = act.q;
+      searchNearbyBusinesses(act.q);
+      speakHebrew(`מחפש ${act.q} בסביבה`);
+    } else {
+      draw();
+    }
+    return;
+  }
+  if (act.action === 'briefing' || act.action === 'morning') {
+    runMorningBriefing(true);
+    return;
+  }
+  if (act.action === 'checkin') {
+    const st = act.status || act.q || 'ברכב';
+    const nextVal = { status: st, at: Date.now() };
+    S.checkins[S.uid] = nextVal;
+    syncRoom({ [`checkins/${S.uid}`]: nextVal });
+    toast(`עודכן סטטוס דרך סירי: ${st}`);
+    speakHebrew(`עודכן סטטוס ל${st}`);
+    draw();
+    return;
+  }
+  if (act.action === 'sos') {
+    const sosObj = { active: true, at: Date.now(), name: S.members[S.uid]?.name || '' };
+    S.sos[S.uid] = sosObj;
+    startLocWatch(true);
+    syncRoom({ [`sos/${S.uid}`]: sosObj });
+    toast('התראת SOS הופעלה דרך סירי');
+    speakHebrew('הופעלה התראת חירום לכל המשפחה');
+    draw();
+    return;
+  }
+  if (act.action === 'voice') {
+    showVoiceAssistantSheet(true);
+    return;
+  }
+}
+
+async function processVoiceCommand(rawSpoken) {
+  const text = String(rawSpoken || '').trim();
+  if (!text) return;
+  voiceState.transcript = text;
+  voiceState.actionDone = '';
+  const low = text.toLowerCase();
+
+  // 1) Drive mode
+  if (/מצב נהיגה|מתחיל לנהוג|יצאנו לדרך|drive mode/i.test(low)) {
+    activateDriveMode(true);
+    updateVoiceSheetUi();
+    return;
+  }
+
+  // 2) Morning / daily briefing
+  if (/סיכום|מה בתוכנית|מה הלוז|מה הלו״ז|מה יש היום|briefing/i.test(low)) {
+    runMorningBriefing(true);
+    updateVoiceSheetUi();
+    return;
+  }
+
+  // 3) Navigate to next stop
+  if (/נווט|ניווט|תחנה הבאה|לאן נוסעים|וויז|waze/i.test(low) && !/חפש|איפה יש|פיצה|דלק|מוסך|מסעדה|סופר|קפה|מרקחת/i.test(low)) {
+    const nx = nextStop();
+    if (nx && nx.stop) {
+      const reply = `פותח ניווט ב-Waze אל ${nx.stop.title}.`;
+      voiceState.reply = reply;
+      updateVoiceSheetUi();
+      speakHebrew(reply);
+      setTimeout(() => { window.open(navUrl(nx.stop, 'waze'), '_blank', 'noopener'); }, 450);
+    } else {
+      const reply = 'אין כרגע תחנה הבאה מוגדרת במסלול.';
+      voiceState.reply = reply;
+      updateVoiceSheetUi();
+      speakHebrew(reply);
+    }
+    return;
+  }
+
+  // 4) Search nearby business ("חפש פיצה", "איפה יש תחנת דלק", "מצא מוסך")
+  const searchMatch = text.match(/(?:חפש|תחפש|מצא|תמצא|איפה יש|קרוב אליי|קרוב אלי|search|find)\s+(?:לי\s+)?(.+)/i);
+  if (searchMatch && searchMatch[1]) {
+    const query = searchMatch[1].replace(/בסביבה|לידי|קרוב/g, '').trim();
+    if (query) {
+      const reply = `מחפש ${query} סביבך במפה.`;
+      voiceState.reply = reply;
+      S.tab = 'map';
+      S.mapMode = 'near';
+      S.nearQuery = query;
+      closeSheet();
+      searchNearbyBusinesses(query);
+      speakHebrew(reply);
+      return;
+    }
+  }
+
+  // 5) Ticket / booking code lookup ("מה קוד ההזמנה", "כרטיסים", "טיסה", "מלון")
+  if (/קוד|הזמנה|כרטיס|טיסה|מלון|ticket|booking/i.test(low)) {
+    if (S.tickets.length) {
+      const found = S.tickets.find(t => low.includes((t.title || '').toLowerCase()) || (low.includes('טיסה') && t.kind === 'flight') || (low.includes('מלון') && t.kind === 'stay')) || S.tickets[0];
+      const reply = `${found.title}${found.when ? ', מועד ' + found.when : ''}${found.code ? '. קוד ההזמנה הוא ' + found.code.split('').join(' ') : ''}.`;
+      voiceState.reply = reply;
+      S.tab = 'tickets';
+      draw();
+      updateVoiceSheetUi();
+      speakHebrew(reply);
+    } else {
+      const reply = 'עדיין לא שמורים כרטיסים או קודי הזמנה באפליקציה.';
+      voiceState.reply = reply;
+      updateVoiceSheetUi();
+      speakHebrew(reply);
+    }
+    return;
+  }
+
+  // 6) Quick check-in ("עדכן סטטוס ברכב", "אנחנו אוכלים", "בגלידה")
+  const matchedPreset = CHECKIN_PRESETS.find(p => low.includes(p));
+  if (matchedPreset || /סטטוס|צ׳ק אין|צק אין/i.test(low)) {
+    const st = matchedPreset || text.replace(/עדכן|סטטוס|ל/g, '').trim() || 'מטיילים';
+    const nextVal = { status: st, at: Date.now() };
+    S.checkins[S.uid] = nextVal;
+    syncRoom({ [`checkins/${S.uid}`]: nextVal });
+    const reply = `עדכנתי את הסטטוס שלך ל${st}.`;
+    voiceState.reply = reply;
+    draw();
+    updateVoiceSheetUi();
+    speakHebrew(reply);
+    return;
+  }
+
+  // 7) Where is family member ("איפה סיגל", "איפה ליאן")
+  if (/איפה/i.test(low)) {
+    const memberEntry = Object.entries(S.members || {}).find(([, m]) => m?.name && low.includes(m.name.toLowerCase()));
+    if (memberEntry) {
+      const [mid, m] = memberEntry;
+      const l = S.locs[mid];
+      const st = S.checkins[mid]?.status;
+      if (l && typeof l.lat === 'number') {
+        const dist = mid === S.uid ? 'נמצא במיקום שלך' : fmtDistFromMe(l);
+        const reply = `${m.name} ${dist || 'משתף מיקום'}${st ? ', סטטוס: ' + st : ''}, ${ago(l.at)}.`;
+        voiceState.reply = reply;
+        S.tab = 'map';
+        S.mapMode = 'fam';
+        S.selectedMember = mid;
+        draw();
+        updateVoiceSheetUi();
+        speakHebrew(reply);
+        return;
+      } else {
+        const reply = `${m.name} לא משתף מיקום כרגע${st ? ', אבל הסטטוס שלו הוא ' + st : ''}.`;
+        voiceState.reply = reply;
+        updateVoiceSheetUi();
+        speakHebrew(reply);
+        return;
+      }
+    }
+  }
+
+  // 8) Fallback: if Gemini API key is configured, ask Gemini with trip context!
+  const apiKey = (localStorage.getItem(GEMINI_KEY_STORAGE) || '').trim();
+  if (apiKey) {
+    try {
+      voiceState.reply = 'חושב...';
+      updateVoiceSheetUi();
+      const nx = nextStop();
+      const ctx = `טיול: ${S.trip?.title || 'לא מוגדר'}, יעד: ${S.trip?.dest || ''}. התחנה הבאה: ${nx?.stop?.title || 'אין'} (${nx?.stop?.time || ''}). כרטיסים שמורים: ${S.tickets.map(t => `${t.title} (${t.code || ''})`).join(', ') || 'אין'}.`;
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `אתה עוזר נסיעה קולי קצר וברור בעברית בתוך אפליקציית Tripapp. ענה ב-1 עד 2 משפטים קצרים שמתאימים להקראה בזמן נהיגה.\nהקשר הטיול: ${ctx}\nבקשת המשתמש: ${text}` }] }]
+        })
+      });
+      if (resp.ok) {
+        const j = await resp.json();
+        const ans = (j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+        if (ans) {
+          voiceState.reply = ans;
+          updateVoiceSheetUi();
+          speakHebrew(ans);
+          return;
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Final fallback: treat as business search if short, or show helpful guidance
+  const fallbackReply = `לא זיהיתי פקודה מדויקת. אפשר לומר: "מצב נהיגה", "נווט לתחנה הבאה", "חפש פיצה", "מה קוד ההזמנה" או "סיכום היום".`;
+  voiceState.reply = fallbackReply;
+  updateVoiceSheetUi();
+  speakHebrew(fallbackReply);
+}
+
+function startVoiceListening() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    toast('הדפדפן במכשיר זה לא תומך בזיהוי דיבור ישיר — השתמש בקיצורי Siri');
+    return;
+  }
+  if (voiceState.listening && speechRec) {
+    try { speechRec.stop(); } catch (_) {}
+    voiceState.listening = false;
+    updateVoiceSheetUi();
+    return;
+  }
+  try {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    const rec = new SR();
+    rec.lang = 'he-IL';
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+    speechRec = rec;
+
+    rec.onstart = () => {
+      voiceState.listening = true;
+      voiceState.transcript = '';
+      updateVoiceSheetUi();
+    };
+    rec.onresult = ev => {
+      let interim = '';
+      let finalTxt = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const tr = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) finalTxt += tr;
+        else interim += tr;
+      }
+      voiceState.transcript = finalTxt || interim;
+      updateVoiceSheetUi();
+      if (finalTxt) {
+        voiceState.listening = false;
+        processVoiceCommand(finalTxt);
+      }
+    };
+    rec.onerror = () => {
+      voiceState.listening = false;
+      updateVoiceSheetUi();
+    };
+    rec.onend = () => {
+      voiceState.listening = false;
+      updateVoiceSheetUi();
+    };
+    rec.start();
+  } catch (_) {
+    voiceState.listening = false;
+    toast('לא ניתן להפעיל מיקרופון כרגע');
+  }
+}
+
+function updateVoiceSheetUi() {
+  const mic = $('#voice-sheet-mic');
+  if (mic) {
+    mic.className = `mic-btn${voiceState.listening ? ' live' : ''}`;
+    mic.setAttribute('aria-label', voiceState.listening ? 'עצור האזנה' : 'התחל דיבור');
+  }
+  const st = $('#voice-sheet-status');
+  if (st) st.textContent = voiceState.listening ? 'מאזין לך עכשיו... דבר בעברית' : 'לחץ על המיקרופון ודבר (לדוגמה: "חפש פיצה", "מצב נהיגה")';
+  const tr = $('#voice-sheet-transcript');
+  if (tr) tr.textContent = voiceState.transcript ? `״${voiceState.transcript}״` : '';
+  const rp = $('#voice-sheet-reply');
+  if (rp) {
+    rp.style.display = voiceState.reply ? 'block' : 'none';
+    rp.textContent = voiceState.reply;
+  }
+}
+
+function showVoiceAssistantSheet(autoListen = false) {
+  openSheet(`
+    <div class="between">
+      <h2>עוזר נסיעה קולי</h2>
+      <div class="row" style="gap:4px">
+        <button type="button" class="lnk" id="toggle-voice-speak" style="font-size:13px">${voiceState.speakEnabled ? 'הקראה פעילה' : 'מושתק'}</button>
+        <button type="button" class="lnk" id="sh-close">${svg('x')}</button>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:10px 0;text-align:center">
+      <button type="button" id="voice-sheet-mic" class="mic-btn${voiceState.listening ? ' live' : ''}" aria-label="התחל דיבור">${svg('mic', 24)}</button>
+      <div id="voice-sheet-status" class="small">${voiceState.listening ? 'מאזין לך עכשיו... דבר בעברית' : 'לחץ על המיקרופון ודבר (לדוגמה: "חפש פיצה", "מצב נהיגה")'}</div>
+      <div id="voice-sheet-transcript" style="font-weight:700;font-size:18px;color:var(--ink)">${voiceState.transcript ? '״' + esc(voiceState.transcript) + '״' : ''}</div>
+    </div>
+    <div id="voice-sheet-reply" class="note" style="display:${voiceState.reply ? 'block' : 'none'}">${esc(voiceState.reply)}</div>
+    <div class="small" style="font-weight:600;margin-top:4px">פקודות מהירות בלחיצה:</div>
+    <div class="chips">
+      <button type="button" class="chip" data-voice-cmd="מצב נהיגה">מצב נהיגה</button>
+      <button type="button" class="chip" data-voice-cmd="נווט לתחנה הבאה">נווט לתחנה הבאה</button>
+      <button type="button" class="chip" data-voice-cmd="סיכום היום">סיכום היום</button>
+      <button type="button" class="chip" data-voice-cmd="חפש תחנת דלק">חפש תחנת דלק</button>
+      <button type="button" class="chip" data-voice-cmd="מה קוד ההזמנה">קוד הזמנה</button>
+    </div>
+  `);
+  if (autoListen) {
+    setTimeout(startVoiceListening, 250);
+  }
+}
+
+function showSiriSetupSheet() {
+  const base = getBaseAppUrl();
+  const shortcuts = [
+    {
+      title: '1. "היי סירי, מצב נהיגה"',
+      desc: 'מדליק שיתוף מיקום למשפחה, מעדכן סטטוס ל"ברכב" ומקריא את התחנה הבאה. מתאים גם לאוטומציית Bluetooth ברכב!',
+      url: `${base}?action=drive`
+    },
+    {
+      title: '2. "היי סירי, עוזר טיול"',
+      desc: 'פותח את העוזר הקולי בהאזנה מיידית לפקודות חופשיות בעברית בזמן נהיגה.',
+      url: `${base}?action=voice`
+    },
+    {
+      title: '3. "היי סירי, סיכום בוקר"',
+      desc: 'פותח את מסך היום ומקריא בקול את תוכנית היום, התחנה הבאה ומיקום המשפחה.',
+      url: `${base}?action=briefing`
+    },
+    {
+      title: '4. "היי סירי, חפש בסביבה"',
+      desc: 'פותח מיד את חיפוש העסקים והמפה סביבך (ניתן להוסיף &q=פיצה בסוף הכתובת).',
+      url: `${base}?action=search`
+    }
+  ];
+
+  openSheet(`
+    <div class="between"><h2>חיבור ל-Siri ואוטומציות אייפון</h2><button type="button" class="lnk" id="sh-close">${svg('x')}</button></div>
+    <div class="note">
+      <strong>איך מגדירים באייפון ב-30 שניות:</strong><br>
+      1. פתח את אפליקציית <strong>קיצורים (Shortcuts)</strong> באייפון ולחץ <strong>+</strong>.<br>
+      2. הוסף פעולה: <strong>פתח כתובות URL (Open URLs)</strong> והדבק אחת מהכתובות למטה.<br>
+      3. תן לקיצור שם בעברית (למשל ״מצב נהיגה״) — ומאותו רגע תוכל לומר <strong>״היי סירי, מצב נהיגה״</strong>.<br>
+      4. <strong>אוטומציה אוטומטית לרכב:</strong> בלשונית <em>אוטומציה (Automation)</em> בחר <em>Bluetooth -> התחברות לרכב</em> -> הפעל את קיצור ״מצב נהיגה״!
+    </div>
+    <div class="stack-s">
+      ${shortcuts.map(sc => `<div class="card stack-s" style="padding:12px">
+        <div style="font-weight:700;font-size:15px">${esc(sc.title)}</div>
+        <div class="small">${esc(sc.desc)}</div>
+        <div class="siri-url">${esc(sc.url)}</div>
+        <div class="row">
+          <button type="button" class="mini o" style="flex:1" data-copy="${esc(sc.url)}">העתק כתובת</button>
+          <button type="button" class="mini p" style="flex:1" data-test-siri="${esc(sc.url)}">בדוק עכשיו</button>
+        </div>
+      </div>`).join('')}
+    </div>
+  `);
+}
 
 render();
 </script>
