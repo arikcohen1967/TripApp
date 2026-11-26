@@ -24,23 +24,22 @@
   --field:#CFCFCF;
   color-scheme:light;
 }
-:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-*,*::before,*::after{box-sizing:inherit}
+*,*::before,*::after{box-sizing:border-box}
 html{height:100%;width:100%;max-width:100vw;overflow-x:hidden;scroll-padding-top:env(safe-area-inset-top,0px);touch-action:manipulation}
-body{margin:0;height:100%;width:100%;max-width:100vw;overflow-x:hidden;background:var(--bg);color:var(--ink);font-family:'Heebo',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%;touch-action:pan-y}
+body{margin:0;height:100%;width:100%;max-width:100vw;overflow-x:hidden;background:var(--bg);color:var(--ink);font-family:'Heebo',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%;touch-action:pan-y;padding-top:env(safe-area-inset-top,0px)}
 button,input,select{font-family:inherit;font-size:16px;color:inherit;max-width:100%}
 button{cursor:pointer}
 a{text-decoration:none;color:inherit;max-width:100%}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 #app{height:100%;width:100%;max-width:520px;margin:0 auto;display:flex;flex-direction:column;overflow-x:hidden}
-#view{flex:1;min-height:0;width:100%;max-width:100%;overflow-y:auto;overflow-x:hidden;padding:20px 20px 28px;touch-action:pan-y}
+#view{flex:1;min-height:0;width:100%;max-width:100%;overflow-y:auto;overflow-x:hidden;padding:20px 20px 28px;touch-action:pan-y;-webkit-overflow-scrolling:touch}
 .card,.hero,.sh,.tab-link,.opt{max-width:100%;overflow-wrap:break-word;word-wrap:break-word}
-#nav{flex:none;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 6px 8px}
-#nav button{flex:1;min-height:56px;border:0;background:transparent;color:var(--mut);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:13px;font-weight:600;border-radius:12px}
+#nav{flex:none;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 6px calc(8px + env(safe-area-inset-bottom,0px))}
+#nav button{flex:1;min-height:56px;border:0;background:transparent;color:var(--mut);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:13px;font-weight:600;border-radius:12px;transition:background .15s ease,color .15s ease}
 #nav button.on{color:var(--acc);background:var(--soft)}
 .stack{display:flex;flex-direction:column;gap:20px}
 .stack-s{display:flex;flex-direction:column;gap:10px}
-.topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;background:var(--bg);margin:-20px -20px 8px;padding:8px 14px;border-bottom:1px solid var(--line)}
+.topbar{position:sticky;top:-20px;z-index:5;display:flex;align-items:center;justify-content:space-between;background:var(--bg);margin:-20px -20px 8px;padding:10px 14px;border-bottom:1px solid var(--line)}
 .topbar .lnk{display:flex;align-items:center;gap:6px;min-width:64px}
 .row{display:flex;align-items:center;gap:12px}
 .between{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -54,10 +53,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .btn2{min-height:48px;padding:0 18px;border-radius:14px;border:1.5px solid var(--field);background:var(--card);color:var(--ink);font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center}
 .btn2.danger{color:var(--bad);border-color:var(--bad);background:var(--badsoft)}
 .lnk{min-height:44px;padding:0 6px;border:0;background:transparent;color:var(--acc);font-weight:600;display:inline-flex;align-items:center;justify-content:center}
-.mini{min-height:44px;min-width:58px;padding:0 12px;border-radius:12px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.mini{min-height:44px;min-width:58px;padding:0 12px;border-radius:12px;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px}
 .mini.p{background:var(--acc);color:var(--on)}
 .mini.o{border:1.5px solid var(--field);background:var(--card);color:var(--ink)}
-.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
 .chip{flex:none;min-height:44px;padding:0 16px;border-radius:22px;border:1.5px solid var(--line);background:var(--card);font-weight:600;color:var(--ink)}
 .chip.on{background:var(--acc);border-color:var(--acc);color:var(--on)}
 .seg{display:flex;gap:4px;background:var(--chip);border-radius:14px;padding:4px}
@@ -95,6 +95,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{ou
 .fm-pin.off{border-color:#888888;opacity:.75}
 .fm-dot{position:absolute;bottom:-2px;right:-2px;width:11px;height:11px;border-radius:50%;background:#16A34A;border:2px solid #FFFFFF}
 .fm-card-active{border:2px solid var(--acc);background:var(--soft)}
+.poi-pin{width:34px;height:34px;border-radius:50%;background:var(--acc);color:#FFFFFF;border:2.5px solid #FFFFFF;box-shadow:0 3px 10px rgba(37,99,235,.38);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.poi-pin.on{background:#111111;transform:scale(1.12)}
+.me-pin{width:20px;height:20px;border-radius:50%;background:#16A34A;border:3px solid #FFFFFF;box-shadow:0 0 0 4px rgba(22,163,74,.25)}
+.search-bar{display:flex;align-items:center;gap:8px;background:var(--bg);border:1.5px solid var(--field);border-radius:14px;padding:4px 12px 4px 6px;min-height:52px}
+.search-bar:focus-within{border-color:var(--acc);background:var(--card)}
+.search-bar input{flex:1;min-width:0;border:0;background:transparent;padding:8px 0;font-size:16px;outline:none}
+.search-clear{min-width:36px;min-height:36px;border:0;background:transparent;color:var(--mut);display:flex;align-items:center;justify-content:center;border-radius:10px}
 @media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}}
 </style>
 </head>
@@ -139,7 +146,8 @@ const IC = {
   back: '<path d="M9 6l6 6-6 6"/>',
   chev: '<path d="M15 6l-6 6 6 6"/>',
   pause: '<path d="M8 5v14M16 5v14"/>',
-  x: '<path d="M6 6l12 12M18 6L6 18"/>'
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'
 };
 const svg = (n, s = 20) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
 
@@ -149,13 +157,15 @@ const KINDS = [['flight', 'טיסה'], ['stay', 'לינה'], ['fun', 'אטרקצ
 const KIND_LABEL = { flight: 'טיסה', stay: 'לינה', fun: 'אטרקציה', other: 'אחר' };
 const CATS = [
   ['restaurants', 'מסעדות'],
+  ['pizza', 'פיצה'],
   ['gas stations', 'תחנות דלק'],
+  ['car repair', 'מוסכים'],
   ['supermarkets', 'סופרמרקטים'],
   ['cafes', 'בתי קפה'],
   ['pharmacies', 'בתי מרקחת'],
   ['parking', 'חניונים']
 ];
-const APP_VERSION = 'v1.9.0';
+const APP_VERSION = 'v1.9.1';
 const ROUND = 10;
 const QUESTION_SEC = 35;
 const LOCAL_USER_KEY = 'family_trip_uid_v1';
@@ -220,7 +230,6 @@ if (!uid) {
 
 function getAdminUid() {
   const members = S.members || {};
-  // Eric is always the primary group manager if present in the group
   for (const [id, m] of Object.entries(members)) {
     if (isEricName(m?.name)) return id;
   }
@@ -1781,16 +1790,22 @@ const S = {
   mapMode: 'fam',
   selectedMember: null,
   cat: 'restaurants',
-  trip: null,
-  days: [],
-  stops: [],
-  tickets: [],
-  members: {},
-  locs: {},
-  scores: {},
-  checkins: {},
+  nearQuery: '',
+  nearResults: [],
+  nearBusy: false,
+  nearErr: '',
+  nearSearched: false,
+  selectedPoi: null,
+  trip: _cached?.trip || null,
+  days: Array.isArray(_cached?.days) ? _cached.days : [],
+  stops: Array.isArray(_cached?.stops) ? _cached.stops : [],
+  tickets: Array.isArray(_cached?.tickets) ? _cached.tickets : [],
+  members: _cached?.members || {},
+  locs: _cached?.locs || {},
+  scores: _cached?.scores || {},
+  checkins: _cached?.checkins || {},
   prog: null,
-  tvGame: null,
+  tvGame: _cached?.tvGame || null,
   geo: '',
   tv: 'lobby',
   tvSec: QUESTION_SEC,
@@ -1801,10 +1816,13 @@ const S = {
   ob: { step: 0, name: '', color: 0, loc: '' },
   resetScroll: false
 };
+if (_cached?.savedAt) lastCloudSyncAt = _cached.savedAt;
 
 let raf = 0, sheetCfg = null, watchId = null, lastPush = 0, pushBusy = false;
 let tvInterval = null, tvAdvanceTimeout = null;
 let findMyMap = null, findMyMarkers = {};
+let nearMap = null, nearMarkers = {};
+let nearSearchAbort = null;
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 const normalizeArr = val => Array.isArray(val) ? val : (val && typeof val === 'object' ? Object.values(val) : []);
@@ -1823,7 +1841,6 @@ onValue(ROOM_REF, snap => {
   S.tvGame = d.triviaGame || null;
   S.sos = d.sos || {};
 
-  // Re-attach to existing profile if localStorage uid was reset on this phone
   if (!S.members[S.uid]) {
     const savedName = localStorage.getItem(LOCAL_NAME_KEY);
     if (savedName) {
@@ -1839,7 +1856,6 @@ onValue(ROOM_REF, snap => {
     localStorage.setItem(LOCAL_NAME_KEY, S.members[S.uid].name);
   }
 
-  // Ensure Eric is recorded as group admin in trip/adminUid
   const me = S.members[S.uid];
   if (me && isEricName(me.name) && S.trip && S.trip.adminUid !== S.uid) {
     S.trip.adminUid = S.uid;
@@ -1868,19 +1884,7 @@ function syncRoom(patch) {
 const draw = () => {
   if (!raf) raf = requestAnimationFrame(() => {
     raf = 0;
-    if (_cached) {
-  if (_cached.trip) S.trip = _cached.trip;
-  if (Array.isArray(_cached.days)) S.days = _cached.days;
-  if (Array.isArray(_cached.stops)) S.stops = _cached.stops;
-  if (Array.isArray(_cached.tickets)) S.tickets = _cached.tickets;
-  if (_cached.members) S.members = _cached.members;
-  if (_cached.locs) S.locs = _cached.locs;
-  if (_cached.scores) S.scores = _cached.scores;
-  if (_cached.checkins) S.checkins = _cached.checkins;
-  if (_cached.tvGame) S.tvGame = _cached.tvGame;
-  if (_cached.savedAt) lastCloudSyncAt = _cached.savedAt;
-}
-render();
+    render();
     if (S.resetScroll) { S.resetScroll = false; const v = $('#view'); if (v) v.scrollTop = 0; }
   });
 };
@@ -1951,12 +1955,131 @@ function navUrl(s, appName) {
   return ll ? `https://maps.apple.com/?daddr=${ll}` : `https://maps.apple.com/?daddr=${q}`;
 }
 
-function nearUrl(cat, appName) {
+function nearUrl(term, appName) {
   const l = S.locs[S.uid], has = l && typeof l.lat === 'number' && typeof l.lng === 'number';
-  const q = encodeURIComponent(cat);
+  const q = encodeURIComponent(term || S.cat);
   if (appName === 'waze') return has ? `https://waze.com/ul?ll=${l.lat},${l.lng}&q=${q}` : `https://waze.com/ul?q=${q}`;
   if (appName === 'google') return has ? `https://www.google.com/maps/search/?api=1&query=${q}&center=${l.lat},${l.lng}` : `https://www.google.com/maps/search/?api=1&query=${q}`;
   return has ? `https://maps.apple.com/?q=${q}&sll=${l.lat},${l.lng}` : `https://maps.apple.com/?q=${q}`;
+}
+
+function getSearchCenter() {
+  const me = S.locs[S.uid];
+  if (me && typeof me.lat === 'number' && typeof me.lng === 'number') {
+    return { lat: me.lat, lng: me.lng, source: 'me' };
+  }
+  for (const [id, l] of Object.entries(S.locs || {})) {
+    if (l && typeof l.lat === 'number' && typeof l.lng === 'number') {
+      return { lat: l.lat, lng: l.lng, source: 'member' };
+    }
+  }
+  for (const s of S.stops || []) {
+    if (typeof s.lat === 'number' && typeof s.lng === 'number') {
+      return { lat: s.lat, lng: s.lng, source: 'stop' };
+    }
+  }
+  return null;
+}
+
+function requestLivePositionOnce() {
+  return new Promise(resolve => {
+    if (!navigator.geolocation) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(p => {
+      pushLoc(p);
+      resolve({ lat: p.coords.latitude, lng: p.coords.longitude, source: 'me' });
+    }, () => resolve(null), { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 });
+  });
+}
+
+async function searchNearbyBusinesses(rawTerm) {
+  const term = String(rawTerm || S.nearQuery || '').trim();
+  if (!term) {
+    toast('הקלד מה לחפש (לדוגמה: פיצה, מסעדה, מוסך, pizza)');
+    return;
+  }
+  S.nearQuery = term;
+  S.nearBusy = true;
+  S.nearErr = '';
+  S.nearSearched = true;
+  S.selectedPoi = null;
+  draw();
+
+  if (nearSearchAbort) {
+    try { nearSearchAbort.abort(); } catch (_) {}
+  }
+  const ctrl = new AbortController();
+  nearSearchAbort = ctrl;
+
+  try {
+    let center = getSearchCenter();
+    if (!center || center.source !== 'me') {
+      const fresh = await requestLivePositionOnce();
+      if (fresh) center = fresh;
+    }
+
+    const params = new URLSearchParams({
+      q: term,
+      format: 'jsonv2',
+      addressdetails: '1',
+      limit: '15'
+    });
+    if (center) {
+      const dLng = 0.25;
+      const dLat = 0.22;
+      const viewbox = `${(center.lng - dLng).toFixed(5)},${(center.lat + dLat).toFixed(5)},${(center.lng + dLng).toFixed(5)},${(center.lat - dLat).toFixed(5)}`;
+      params.set('viewbox', viewbox);
+      params.set('bounded', '0');
+    }
+
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+      signal: ctrl.signal,
+      headers: { 'Accept-Language': 'he,en' }
+    });
+    if (!res.ok) throw new Error('שגיאה בשרת החיפוש');
+    const raw = await res.json();
+
+    const mapped = (Array.isArray(raw) ? raw : [])
+      .map((item, idx) => {
+        const lat = parseFloat(item.lat);
+        const lng = parseFloat(item.lon);
+        if (isNaN(lat) || isNaN(lng)) return null;
+        const addr = item.address || {};
+        const name = item.name || (item.display_name || '').split(',')[0] || term;
+        const street = [addr.road, addr.house_number].filter(Boolean).join(' ');
+        const city = addr.city || addr.town || addr.village || addr.suburb || addr.municipality || '';
+        const subtitle = [street, city].filter(Boolean).join(', ') || (item.display_name || '').split(',').slice(1, 3).join(',').trim();
+        const km = center ? calcDistKm(center.lat, center.lng, lat, lng) : null;
+        return {
+          id: String(item.place_id || idx),
+          name,
+          subtitle,
+          type: item.type || item.category || '',
+          lat,
+          lng,
+          km
+        };
+      })
+      .filter(Boolean);
+
+    if (center) {
+      mapped.sort((a, b) => (a.km ?? 99999) - (b.km ?? 99999));
+    }
+
+    S.nearResults = mapped;
+    S.nearBusy = false;
+    if (mapped.length) {
+      S.selectedPoi = mapped[0].id;
+    } else {
+      S.nearErr = 'לא נמצאו תוצאות מדויקות במפה הפנימית — אפשר לפתוח ישירות ב-Google Maps או Waze למטה.';
+    }
+    draw();
+  } catch (err) {
+    if (err && err.name === 'AbortError') return;
+    S.nearBusy = false;
+    S.nearResults = [];
+    S.nearErr = 'לא הצלחנו לטעון תוצאות כרגע — השתמש בכפתורי הניווט הישיר ב-Google Maps או Waze.';
+    draw();
+  }
 }
 
 function getNearestStopFromMe() {
@@ -2106,6 +2229,8 @@ function render() {
   v.innerHTML = renderSosBanner() + html;
   if (S.tab === 'map' && S.mapMode === 'fam') {
     requestAnimationFrame(initFindMyMap);
+  } else if (S.tab === 'map' && S.mapMode === 'near') {
+    requestAnimationFrame(initNearMap);
   }
 }
 
@@ -2401,7 +2526,7 @@ function initFindMyMap() {
     const marker = L.marker([l.lat, l.lng], { icon }).addTo(map);
     const dist = id === S.uid ? 'המיקום שלך' : fmtDistFromMe(l);
     marker.bindPopup(`
-      <div style="text-align:right;font-family:Heebo,sans-serif;min-width:150px">
+      <div style="text-align:right;font-family:Heebo,sans-serif;min-width:155px">
         <div style="font-weight:700;font-size:15px">${esc(m?.name || 'בן משפחה')}</div>
         <div style="font-size:12px;color:#555;margin:2px 0 8px">${isLive ? ago(l.at) : 'מיקום אחרון • ' + ago(l.at)}${dist ? ' • ' + dist : ''}</div>
         <div style="display:flex;gap:6px">
@@ -2429,16 +2554,86 @@ function initFindMyMap() {
   findMyMap = map;
 }
 
+function initNearMap() {
+  const el = document.getElementById('near-map');
+  if (!el || typeof L === 'undefined' || !el.isConnected) return;
+  if (nearMap) {
+    nearMap.remove();
+    nearMap = null;
+    nearMarkers = {};
+  }
+  const centerObj = getSearchCenter();
+  const initialCenter = centerObj ? [centerObj.lat, centerObj.lng] : [32.0853, 34.7818];
+  const map = L.map('near-map', { zoomControl: true }).setView(initialCenter, centerObj ? 14 : 9);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+
+  const bounds = [];
+  if (centerObj) {
+    const meIcon = L.divIcon({
+      className: '',
+      html: '<div class="me-pin" title="המיקום שלי"></div>',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10]
+    });
+    L.marker([centerObj.lat, centerObj.lng], { icon: meIcon }).addTo(map);
+    bounds.push([centerObj.lat, centerObj.lng]);
+  }
+
+  (S.nearResults || []).forEach((poi, idx) => {
+    const isSel = S.selectedPoi === poi.id;
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="poi-pin${isSel ? ' on' : ''}">${idx + 1}</div>`,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17]
+    });
+    const marker = L.marker([poi.lat, poi.lng], { icon }).addTo(map);
+    const distTxt = typeof poi.km === 'number'
+      ? (poi.km < 1 ? `${Math.round(poi.km * 1000)} מ׳` : `${poi.km.toFixed(1)} ק״מ`)
+      : '';
+    marker.bindPopup(`
+      <div style="text-align:right;font-family:Heebo,sans-serif;min-width:170px">
+        <div style="font-weight:700;font-size:15px">${esc(poi.name)}</div>
+        ${poi.subtitle ? `<div style="font-size:12px;color:#555;margin-top:2px">${esc(poi.subtitle)}</div>` : ''}
+        ${distTxt ? `<div style="font-size:12px;color:#2563EB;font-weight:600;margin:4px 0 8px">במרחק ${esc(distTxt)}</div>` : '<div style="height:8px"></div>'}
+        <div style="display:flex;gap:6px">
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${poi.lat},${poi.lng}" target="_blank" rel="noopener noreferrer" style="flex:1;background:#2563EB;color:#fff;padding:6px 8px;border-radius:8px;text-align:center;font-size:12px;font-weight:600">Google Maps</a>
+          <a href="https://waze.com/ul?ll=${poi.lat},${poi.lng}&navigate=yes" target="_blank" rel="noopener noreferrer" style="flex:1;background:#EFEFEF;color:#111;padding:6px 8px;border-radius:8px;text-align:center;font-size:12px;font-weight:600">Waze</a>
+        </div>
+      </div>
+    `);
+    marker.on('click', () => {
+      S.selectedPoi = poi.id;
+    });
+    nearMarkers[poi.id] = marker;
+    bounds.push([poi.lat, poi.lng]);
+  });
+
+  if (S.selectedPoi && nearMarkers[S.selectedPoi]) {
+    const sel = (S.nearResults || []).find(p => p.id === S.selectedPoi);
+    if (sel) {
+      map.setView([sel.lat, sel.lng], 15);
+      nearMarkers[S.selectedPoi].openPopup();
+    }
+  } else if (bounds.length > 1) {
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+  }
+  nearMap = map;
+}
+
 function renderMap() {
   const myOn = Boolean(S.locs[S.uid]?.on);
   const ms = Object.entries(S.members);
   const liveCount = ms.filter(([id]) => S.locs[id]?.on && typeof S.locs[id]?.lat === 'number').length;
+  const activeSearchTerm = (S.nearQuery || '').trim() || S.cat;
 
   return `<div class="stack">
     <div class="between">
       <div>
         <h1 class="h1">מצא את</h1>
-        <div class="small">${liveCount} מתוך ${ms.length} בני משפחה מחוברים כרגע</div>
+        <div class="small">${S.mapMode === 'fam' ? `${liveCount} מתוך ${ms.length} בני משפחה מחוברים כרגע` : 'חיפוש עסקים ומקומות סביבך • עברית / English'}</div>
       </div>
       ${liveCount > 0 && S.mapMode === 'fam' ? `<button type="button" class="lnk" id="fm-fit-all">הצג את כולם</button>` : ''}
     </div>
@@ -2503,16 +2698,63 @@ function renderMap() {
         }).join('')}
       </div>
     </div>` : `<div class="stack">
-      <div class="chips">
-        ${CATS.map(([k, lbl]) => `<button type="button" class="chip ${S.cat === k ? 'on' : ''}" data-cat="${k}">${lbl}</button>`).join('')}
+      <div class="card stack-s">
+        <div class="h2">חפש כל עסק או מקום בסביבה</div>
+        <div class="small">הקלד בעברית או באנגלית (לדוגמה: פיצה, מסעדה, מוסך, בית מרקחת, pizza, garage)</div>
+        <form id="near-search-form" class="search-bar">
+          <span style="color:var(--mut);display:flex">${svg('search', 20)}</span>
+          <input id="near-q-input" dir="auto" value="${esc(S.nearQuery)}" placeholder="מה לחפש? פיצה, מוסך, סופר, pizza..." autocomplete="off" enterkeyhint="search">
+          ${S.nearQuery ? `<button type="button" class="search-clear" id="near-q-clear" aria-label="נקה חיפוש">${svg('x', 18)}</button>` : ''}
+          <button type="submit" class="mini p" style="min-height:40px;padding:0 14px" ${S.nearBusy ? 'disabled' : ''}>${S.nearBusy ? 'מחפש...' : 'חפש'}</button>
+        </form>
+        <div class="chips" style="margin-top:2px">
+          ${CATS.map(([k, lbl]) => `<button type="button" class="chip ${S.nearQuery === lbl ? 'on' : ''}" data-cat="${k}" data-cat-lbl="${esc(lbl)}">${lbl}</button>`).join('')}
+        </div>
       </div>
-      <div class="card stack">
-        <div class="h2">מצא ${esc(CATS.find(c => c[0] === S.cat)?.[1] || '')} בקרבת מקום</div>
-        <div class="small">${myOn ? 'החיפוש ממוקד סביב המיקום הנוכחי שלך.' : 'הפעל שיתוף מיקום כדי למקד את החיפוש בדיוק סביבך.'}</div>
+
+      <div id="near-map" class="card" style="height:290px;padding:0;overflow:hidden;z-index:1"></div>
+
+      ${S.nearErr ? `<div class="note">${esc(S.nearErr)}</div>` : ''}
+
+      ${S.nearResults.length ? `<div class="stack-s">
+        <div class="between">
+          <div class="h2">תוצאות במפה (${S.nearResults.length})</div>
+          <span class="small">לחץ לניווט מהיר</span>
+        </div>
+        ${S.nearResults.map((poi, idx) => {
+          const isSel = S.selectedPoi === poi.id;
+          const distTxt = typeof poi.km === 'number'
+            ? (poi.km < 1 ? `במרחק ${Math.round(poi.km * 1000)} מ׳` : `במרחק ${poi.km.toFixed(1)} ק״מ`)
+            : '';
+          return `<div class="card stack-s ${isSel ? 'fm-card-active' : ''}" data-focus-poi="${esc(poi.id)}" style="cursor:pointer">
+            <div class="between">
+              <div class="row" style="min-width:0;flex:1">
+                <div class="av" style="background:${isSel ? 'var(--acc)' : 'var(--soft)'};color:${isSel ? '#FFFFFF' : 'var(--acc)'};width:34px;height:34px;font-size:14px">${idx + 1}</div>
+                <div style="min-width:0;flex:1">
+                  <div class="h2" style="font-size:17px">${esc(poi.name)}</div>
+                  ${poi.subtitle ? `<div class="small">${esc(poi.subtitle)}</div>` : ''}
+                  ${distTxt ? `<div class="small" style="color:var(--acc);font-weight:600;margin-top:2px">${esc(distTxt)}</div>` : ''}
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <a class="mini p" style="flex:1" href="https://www.google.com/maps/dir/?api=1&destination=${poi.lat},${poi.lng}" target="_blank" rel="noopener noreferrer">${svg('nav', 15)} Google Maps</a>
+              <a class="mini o" style="flex:1" href="https://waze.com/ul?ll=${poi.lat},${poi.lng}&navigate=yes" target="_blank" rel="noopener noreferrer">Waze</a>
+              <a class="mini o" href="https://maps.apple.com/?daddr=${poi.lat},${poi.lng}" target="_blank" rel="noopener noreferrer">Apple</a>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
+
+      <div class="card stack-s">
+        <div class="h2">פתח חיפוש ישיר באפליקציית מפות</div>
+        <div class="small">חיפוש מהיר עבור <strong>״${esc(activeSearchTerm)}״</strong> ${myOn ? 'סביב המיקום הנוכחי שלך' : '(מומלץ להפעיל שיתוף מיקום)'}</div>
         <div class="stack-s">
-          <a class="btn" href="${nearUrl(S.cat, 'google')}" target="_blank" rel="noopener noreferrer">פתח ב-Google Maps</a>
-          <a class="btn2" href="${nearUrl(S.cat, 'waze')}" target="_blank" rel="noopener noreferrer">חפש ב-Waze</a>
-          <a class="btn2" href="${nearUrl(S.cat, 'apple')}" target="_blank" rel="noopener noreferrer">פתח במפות Apple</a>
+          <a class="btn" href="${nearUrl(activeSearchTerm, 'google')}" target="_blank" rel="noopener noreferrer">${svg('nav', 18)} פתח ב-Google Maps</a>
+          <div class="row">
+            <a class="btn2" style="flex:1" href="${nearUrl(activeSearchTerm, 'waze')}" target="_blank" rel="noopener noreferrer">חפש ב-Waze</a>
+            <a class="btn2" style="flex:1" href="${nearUrl(activeSearchTerm, 'apple')}" target="_blank" rel="noopener noreferrer">מפות Apple</a>
+          </div>
         </div>
       </div>
     </div>`}
@@ -2734,7 +2976,6 @@ function ensureSharedTimer() {
       const cur = S.tvGame;
       if (!cur || cur.status !== 'play') { stopTriviaTimers(); return; }
 
-      // 1) If wrong/timeout answer is waiting to advance, advance once advanceAt is reached
       if (isTurnAnswered(cur) && cur.advanceAt && Date.now() >= cur.advanceAt && !advancingTrivia) {
         advancingTrivia = true;
         const nextGame = buildNextTurnPatch(cur);
@@ -2744,7 +2985,6 @@ function ensureSharedTimer() {
         return;
       }
 
-      // 2) If unanswered and 35s elapsed, trigger timeout
       const left = getTriviaSecLeft(cur);
       if (left <= 0 && !isTurnAnswered(cur)) {
         if (cur.activeUid === S.uid || isGroupAdmin()) {
@@ -2766,7 +3006,6 @@ function submitSharedAnswer(chosenOrigIdx, isTimeout = false) {
     toast('המתן לתור שלך');
     return;
   }
-  // Strict single-attempt lock per question turn
   const turnKey = `${g.round || 0}_${g.q || 0}_${g.activeUid}`;
   if (localAnswerLockQ === turnKey) return;
   localAnswerLockQ = turnKey;
@@ -2793,7 +3032,6 @@ function submitSharedAnswer(chosenOrigIdx, isTimeout = false) {
     at: Date.now()
   };
 
-  // Correct answer -> advance IMMEDIATELY to next question & next player!
   if (isOk) {
     const nextGame = buildNextTurnPatch({
       ...g,
@@ -2811,7 +3049,6 @@ function submitSharedAnswer(chosenOrigIdx, isTimeout = false) {
     return;
   }
 
-  // Wrong answer or timeout -> NO second attempt! Lock answer immediately, show result briefly (1.4s), then pass turn to next user
   const updatedGame = {
     ...g,
     ans: chosenOrigIdx,
@@ -3152,10 +3389,50 @@ document.addEventListener('input', e => {
     S.ob.name = e.target.value;
     const b = $('#ob-next0');
     if (b) b.disabled = !S.ob.name.trim();
+  } else if (e.target.id === 'near-q-input') {
+    S.nearQuery = e.target.value;
+    const clearBtn = $('#near-q-clear');
+    if (!clearBtn && S.nearQuery) {
+      draw();
+      requestAnimationFrame(() => {
+        const inp = $('#near-q-input');
+        if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+      });
+    } else if (clearBtn && !S.nearQuery) {
+      draw();
+      requestAnimationFrame(() => {
+        const inp = $('#near-q-input');
+        if (inp) inp.focus();
+      });
+    }
+  }
+});
+
+document.addEventListener('submit', e => {
+  if (e.target && e.target.id === 'near-search-form') {
+    e.preventDefault();
+    const inp = $('#near-q-input');
+    const q = inp ? inp.value : S.nearQuery;
+    searchNearbyBusinesses(q);
   }
 });
 
 document.addEventListener('click', e => {
+  const focusPoi = e.target.closest('[data-focus-poi]');
+  if (focusPoi && !e.target.closest('a, button')) {
+    const pid = focusPoi.dataset.focusPoi;
+    const poi = (S.nearResults || []).find(p => p.id === pid);
+    if (poi) {
+      S.selectedPoi = pid;
+      if (nearMap) {
+        nearMap.setView([poi.lat, poi.lng], 16);
+        if (nearMarkers[pid]) nearMarkers[pid].openPopup();
+      }
+      draw();
+    }
+    return;
+  }
+
   const focusCard = e.target.closest('[data-focus-member]');
   if (focusCard && !e.target.closest('a, button')) {
     const mid = focusCard.dataset.focusMember;
@@ -3184,7 +3461,6 @@ document.addEventListener('click', e => {
     const cleanName = S.ob.name.trim() || 'בן משפחה';
     const existingId = findExistingMemberByName(S.members, cleanName);
     if (existingId && existingId !== S.uid) {
-      // Unify device with the existing single profile (e.g. ERIC / eric)
       const oldUid = S.uid;
       S.uid = existingId;
       uid = existingId;
@@ -3244,6 +3520,7 @@ document.addEventListener('click', e => {
     const title = $('#f-t-title').value.trim();
     if (!title) { toast('נא להזין שם לטיול'); return; }
     const tripObj = {
+      ...(S.trip || {}),
       id: S.trip?.id || newId(),
       title,
       dest: $('#f-t-dest').value.trim(),
@@ -3329,7 +3606,26 @@ document.addEventListener('click', e => {
 
   if (el.dataset.mm) { S.mapMode = el.dataset.mm; draw(); return; }
   if (el.id === 'fm-fit-all') { S.selectedMember = null; draw(); return; }
-  if (el.dataset.cat) { S.cat = el.dataset.cat; draw(); return; }
+  if (el.id === 'near-q-clear') {
+    S.nearQuery = '';
+    S.nearResults = [];
+    S.nearErr = '';
+    S.nearSearched = false;
+    S.selectedPoi = null;
+    draw();
+    requestAnimationFrame(() => {
+      const inp = $('#near-q-input');
+      if (inp) inp.focus();
+    });
+    return;
+  }
+  if (el.dataset.cat) {
+    S.cat = el.dataset.cat;
+    const lbl = el.dataset.catLbl || el.dataset.cat;
+    S.nearQuery = lbl;
+    searchNearbyBusinesses(lbl);
+    return;
+  }
   if (el.id === 'toggle-loc') {
     if (S.locs[S.uid]?.on) stopLocWatch();
     else startLocWatch(false);
